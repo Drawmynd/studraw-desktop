@@ -86,3 +86,52 @@ Out of scope (deliberate): desktop icons and real app content (M3); persistence 
 position / size; snapping; native engine windows.
 
 Invalidated docs pages: none.
+
+## 2026-10-20 — One test per durable system
+
+Added `tests/test_scene.gd` + `tests/test_scene.tscn`: a single scene-run suite, no external
+framework. One test per system that survives the coming milestones:
+
+- `T-CLK` (`ClockManager`): 3.5 s of deltas emits exactly 3 ticks; `get_time_string()` keeps
+  the `HH:MM:SS` shape. Uses a fresh instance, so the real-time autoload does not interfere.
+- `T-WIN` (`WindowComponent`): drag by the title bar, resize by the bottom-right corner,
+  maximize / restore (exact rect round-trip), minimum size, minimize / restore, and a close
+  button that emits `closed` once and frees the node; every rect is checked against the work
+  area so the taskbar stays uncovered.
+- `T-DSK` (`DesktopController`): two windows via `open_window`, cascade / topmost order, click
+  on the back window then on the overlap, taskbar button dimming and restore, and closing the
+  focused window without leaving a dead button or an unusable remaining window.
+- `T-PAL` (`Palette`): static scan of every `.gd` / `.tscn` outside `managers/palette.gd`,
+  `tests/` and `addons/`, asserting zero literal `Color(`.
+
+All four pass: 4 tests, 0 failure, exit code 0.
+
+Run: `godot --headless --path . res://tests/test_scene.tscn`
+
+Files touched: `tests/test_scene.gd`, `tests/test_scene.tscn`, `changes.md`.
+
+Why: the window state machine and the window / taskbar signal contract are the parts that
+already broke during M2; one guard per durable system keeps the cost low without testing the
+temporary app buttons and placeholder content.
+
+Out of scope (deliberate): test framework, CI wiring, tests for the app buttons and
+placeholder windows (M3 / M6 replace them), visual rendering. The duplicated 40 px taskbar
+height (`offset_top = -40` in the scene, `taskbar_height = 40` in the component) is left
+untouched: it should be removed in code, not pinned by a test.
+
+Invalidated docs pages: none.
+
+## 2026-10-20 — Godot MCP addon enabled
+
+Installed `@satelliteoflove/godot-mcp` 4.1.11 into `addons/godot_mcp` and enabled it in
+`project.godot` under `[editor_plugins]`. Restarted the editor, which now listens on
+`127.0.0.1:6550`.
+
+Files touched: `project.godot`, `addons/godot_mcp/**` (third-party), `changes.md`.
+
+Why: the MCP server had lost its editor-side plugin, so the assistant tools could not attach.
+
+Out of scope (deliberate): updating the MCP package, bind / port settings, exposing the addon
+to other projects. The tools only reappear after OpenCode itself reconnects to the server.
+
+Invalidated docs pages: none.
