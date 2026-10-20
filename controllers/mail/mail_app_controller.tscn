@@ -78,14 +78,16 @@ theme_override_constants/separation = 8
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
-autowrap_mode = 3
+autowrap_mode = 1
+text_overrun_behavior = 3
 
 [node name="SubjectLabel" type="Label" parent="Split/ReaderPanel/ReaderMargin/ReaderBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Sélectionnez un message"
-autowrap_mode = 3
+autowrap_mode = 1
+text_overrun_behavior = 3
 
 [node name="Separator" type="HSeparator" parent="Split/ReaderPanel/ReaderMargin/ReaderBox"]
 layout_mode = 2
@@ -97,7 +99,8 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 scroll_active = true
 selection_enabled = true
-autowrap_mode = 3
+autowrap_mode = 1
+text_overrun_behavior = 3
 
 [node name="Actions" type="HBoxContainer" parent="Split/ReaderPanel/ReaderMargin/ReaderBox"]
 layout_mode = 2
