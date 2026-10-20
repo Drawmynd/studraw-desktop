@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 ClockManager="*res://managers/clock_manager.gd"
 Palette="*res://managers/palette.gd"
+MailManager="*res://managers/mail_manager.gd"
 MCPGameBridge="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
 
 [display]

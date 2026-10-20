@@ -10,6 +10,7 @@ func _run() -> void:
 	results["T-CLK"] = _test_clock_manager()
 	results["T-WIN"] = await _test_window_component()
 	results["T-DSK"] = await _test_desktop_controller()
+	results["T-MAIL"] = _test_mail_manager()
 	results["T-PAL"] = _test_palette()
 	var failure_count := 0
 	for test_name in results:
@@ -183,6 +184,68 @@ func _test_desktop_controller() -> Array[String]:
 
 	desktop.queue_free()
 	await get_tree().process_frame
+	return failures
+
+
+func _test_mail_manager() -> Array[String]:
+	var failures: Array[String] = []
+	var manager = load("res://managers/mail_manager.gd").new()
+	var save_path: String = "user://test_mail_%d.json" % Time.get_ticks_usec()
+	manager.save_path = save_path
+	var signal_count := {"value": 0}
+	manager.mails_changed.connect(func() -> void: signal_count["value"] += 1)
+	manager.load_state()
+	manager.ensure_welcome_mail()
+	if manager.get_mails().size() != 1:
+		failures.append("amorce: 1 mail attendu, obtenu %d" % manager.get_mails().size())
+	manager.ensure_welcome_mail()
+	if manager.get_mails().size() != 1:
+		failures.append("amorce: mail dupliqué")
+	var welcome_id: String = str(manager.get_mails()[0]["id"])
+	var copy: Array[Dictionary] = manager.get_mails()
+	copy[0]["read"] = true
+	if bool(manager.get_mail(welcome_id)["read"]):
+		failures.append("get_mails: la copie modifie l'état interne")
+	manager.mark_read(welcome_id)
+	if not bool(manager.get_mail(welcome_id)["read"]):
+		failures.append("marquage lu: état non mis à jour")
+	var reloaded = load("res://managers/mail_manager.gd").new()
+	reloaded.save_path = save_path
+	reloaded.load_state()
+	if reloaded.get_mails().is_empty() or not bool(reloaded.get_mail(welcome_id)["read"]):
+		failures.append("persistance: état lu non rechargé")
+	manager.add_mail({
+		"id": "autre",
+		"from": "Client",
+		"subject": "Test",
+		"body": "Corps",
+		"received_at": 1,
+	})
+	if manager.get_mails().size() != 2:
+		failures.append("ajout: 2 mails attendus, obtenu %d" % manager.get_mails().size())
+	manager.archive_mail("autre")
+	if manager.get_mails().size() != 1:
+		failures.append(
+			"archivage: 1 mail en boîte de réception attendu, obtenu %d"
+			% manager.get_mails().size()
+		)
+	if manager.get_mails(true).size() != 2:
+		failures.append(
+			"archivage: 2 mails au total attendus, obtenu %d" % manager.get_mails(true).size()
+		)
+	if not bool(manager.get_mail("autre")["archived"]):
+		failures.append("archivage: indicateur archived non positionné")
+	var reloaded_archive = load("res://managers/mail_manager.gd").new()
+	reloaded_archive.save_path = save_path
+	reloaded_archive.load_state()
+	if reloaded_archive.get_mails().size() != 1 or reloaded_archive.get_mails(true).size() != 2:
+		failures.append("persistance: archivage non rechargé")
+	if signal_count["value"] != 4:
+		failures.append("signal mails_changed: 4 émissions attendues, obtenu %d" % signal_count["value"])
+	manager.free()
+	reloaded.free()
+	reloaded_archive.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 	return failures
 
 

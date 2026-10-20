@@ -72,8 +72,10 @@ Each milestone is one logical change / one commit.
 ### M3 — Mail app
 - `MailManager`: inbox list, read / unread state, persistence.
 - `MailAppController`: mail list + reading pane.
+- Archive: deleting a mail moves it to the archive, never destroys it.
 - Local only, no sync yet.
-- Done when: a hardcoded mail appears, is readable, and read state survives restart.
+- Done when: a hardcoded mail appears, is readable, can be archived, and read state
+  survives restart.
 
 ### M4 — Commission lifecycle
 - `CommissionManager`: accept, complete, deadline computation, states.

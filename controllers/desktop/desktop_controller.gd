@@ -1,6 +1,7 @@
 extends Control
 
 const WINDOW_SCENE: PackedScene = preload("res://components/window/window_component.tscn")
+const MAIL_APP_SCENE: PackedScene = preload("res://controllers/mail/mail_app_controller.tscn")
 const CASCADE_ORIGIN := Vector2(96, 72)
 const CASCADE_STEPS := 6
 
@@ -20,7 +21,7 @@ func _ready() -> void:
 	_apply_palette()
 	_update_clock()
 	ClockManager.second_tick.connect(_update_clock)
-	mail_button.pressed.connect(_on_app_pressed.bind(mail_button.text))
+	mail_button.pressed.connect(_open_mail_app)
 	dev_button.pressed.connect(_on_app_pressed.bind(dev_button.text))
 
 
@@ -67,6 +68,10 @@ func _make_app_button_style(background_color: Color) -> StyleBoxFlat:
 
 func _on_app_pressed(app_title: String) -> void:
 	open_window(app_title, _make_placeholder_content("%s — bientôt disponible." % app_title))
+
+
+func _open_mail_app() -> void:
+	open_window("Courrier", MAIL_APP_SCENE.instantiate())
 
 
 func _update_clock() -> void:

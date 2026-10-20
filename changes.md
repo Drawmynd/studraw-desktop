@@ -11,11 +11,20 @@
   hex string (`Color("#212e3d")`, 8 digits when alpha matters). No inline colour anywhere else,
   neither in `.gd` nor in `.tscn`: components and scenes build their `StyleBox` from the palette.
   Add a new named hex entry instead of a literal.
+- MCP `godot` recovery does not need an OpenCode restart: `opencode api post
+  "/api/experimental/mcp/godot/disconnect?location[directory]=<project>"` then the same with
+  `connect`. The addon accepts one client only, so disconnect other directories first
+  (`C:\Users\Admin`); OpenCode marks the server failed after one timed-out handshake and never
+  retries on its own.
 - To plan (Optimisations, `EXT`): make the palette editable from the editor. Requires a custom
   `Resource` (`class_name PaletteData` with `@export` colours) saved as `res://theme/palette.tres`,
   injected via `@export var palette: PaletteData` on controllers/components, with the autoload
   either loading it or disappearing. A bare autoload script cannot expose `@export` colours; no
   plugin is needed. Deferred for now.
+- Headless tests: the `godot` CLI on this machine is 4.4.1, which cannot parse the MCP addon
+  (`MCPGameBridge` fails on the missing `Logger` base class). To run `tests/test_scene.tscn`,
+  temporarily comment out the `MCPGameBridge` autoload, run with `godot_console.exe` (the
+  `godot.exe` shim returns without output), then restore `project.godot`.
 
 ## 2026-10-18 — Initial roadmap and scope
 
@@ -132,6 +141,48 @@ Files touched: `project.godot`, `addons/godot_mcp/**` (third-party), `changes.md
 Why: the MCP server had lost its editor-side plugin, so the assistant tools could not attach.
 
 Out of scope (deliberate): updating the MCP package, bind / port settings, exposing the addon
-to other projects. The tools only reappear after OpenCode itself reconnects to the server.
+to other projects.
+
+Reconnecting without restarting OpenCode: the server marks `godot` failed after one timed-out
+handshake and does not retry. Use the runtime endpoint instead, with the project as `location`:
+`POST /api/experimental/mcp/godot/disconnect?location[directory]=<project>` then
+`.../connect?location[directory]=<project>` (through `opencode api`). The addon accepts a single
+client, so disconnect any other directory first (e.g. `C:\Users\Admin`), otherwise the project
+Invalidated docs pages: none.
+
+## 2026-10-20 - M3 boîte mail et archives
+
+Added `managers/mail_manager.gd` (autoload `MailManager`): inbox list, read / unread state,
+archiving, and persistence in `user://save.json` under the `mails` key while preserving any
+other keys. A welcome mail is seeded the first time the mail app opens, and not re-seeded
+afterwards.
+
+Added `controllers/mail/mail_app_controller.gd` + `.tscn`: message list, reading pane,
+mark-as-read on selection, a red "Supprimer" button that moves the selected message to the
+archive, and a toggle that reads "Archives" in the inbox and "Boîte de réception" in the
+archive view. The desktop "Courrier" button now opens this app instead of a placeholder.
+
+Palette: added `MAIL_LIST_BACKGROUND`, `MAIL_READING_BACKGROUND`, `MAIL_SELECTED_BACKGROUND`,
+`MAIL_HEADER_TEXT`, `MAIL_TEXT`, `MAIL_META_TEXT`, `MAIL_UNREAD_TEXT`,
+`MAIL_DELETE_BACKGROUND`, `MAIL_DELETE_BACKGROUND_HOVER`,
+`MAIL_DELETE_BACKGROUND_PRESSED` and `MAIL_DELETE_TEXT`.
+
+Tests: added `T-MAIL` to `tests/test_scene.gd` covering the unique seed, the defensive copy
+returned by `get_mails`, mark-as-read, read-state persistence, mail addition, archiving,
+archive persistence and the `mails_changed` emission count. 5 tests, 0 failure.
+
+Manual check: the desktop "Courrier" button opens the app; selecting the welcome mail marks
+it read; "Supprimer" moves it to Archives, and the delete action is hidden in archive view.
+
+Files touched: `managers/palette.gd`, `managers/mail_manager.gd`,
+`controllers/mail/mail_app_controller.gd`, `controllers/mail/mail_app_controller.tscn`,
+`controllers/desktop/desktop_controller.gd`, `project.godot`, `ROADMAP.md`,
+`tests/test_scene.gd`, `changes.md`.
+
+Why: M3 delivers the local mail loop the rest of the app depends on; archiving keeps the
+inbox clean without destroying mail history.
+
+Out of scope (deliberate): network sync (M5), commissions (M4), restoring from the archive,
+permanent deletion, search, folders, attachments, and a desktop unread badge.
 
 Invalidated docs pages: none.
