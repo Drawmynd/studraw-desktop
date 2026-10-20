@@ -296,3 +296,123 @@ Out of scope (deliberate): a persistent debug menu, time travel for the clock, a
 for the dev console.
 
 Invalidated docs pages: none.
+
+## 2026-10-20 — M5 commission sync
+
+Added `managers/sync_manager.gd` (autoload `SyncManager`, after `CommissionManager`): reads the
+shared commissions from a local file or an HTTPS raw URL, caches the last valid payload in
+`user://commissions_cache.json`, falls back to that cache when the source is missing, invalid or
+unreachable, and repeats the fetch every `sync_interval_minutes`. The source is configured in
+`user://sync_config.json` (`mode` local/remote, `local_path`, `remote_url`,
+`sync_interval_minutes`); defaults are local mode on `res://data/commissions.json` with a 30 min
+interval, so the app works before the public repo exists. Fetches never overlap.
+
+Merge is by commission id. `CommissionManager` gained `create_offer()` (unknown id → one
+`commission_offer` mail, id `offre_<commission id>`, unread, unarchived), `refresh_offer()` (same
+id, still pending → subject, body, sender and definition updated in place, read state preserved)
+and a persisted `seen_commissions` list. A payload whose `version` is lower than the cache is
+ignored; a higher one enables the pending-offer refresh. Accepted, refused and archived
+commissions are never recreated, refreshed or removed. Duplicate ids inside one payload produce a
+single offer.
+
+Commissions gained `client` and `sender`; `sender` may differ from the client when the latter is
+a company. Mails renamed their `from` field to `sender` (old saves still load through a fallback)
+and `MailManager.update_mail()` merges changes into a mail without resetting read / archived.
+The mail reader shows the sender plus the client, the commissions list shows the client.
+`ensure_demo_offer()` was removed; the desktop syncs at startup instead and shows a notification
+for new offers only.
+
+The dev console sync section gained a "Forcer Wi-Fi distant OK" checkbox that sets an in-memory
+`SyncManager.force_remote_ok` flag and refreshes the taskbar indicator, so the distant/remote state
+can be forced even when the source is unreachable.
+
+Files touched: `data/commissions.json` (new), `managers/sync_manager.gd` (new),
+`managers/commission_manager.gd`, `managers/mail_manager.gd`,
+`controllers/desktop/desktop_controller.gd`, `controllers/mail/mail_app_controller.gd`,
+`controllers/commissions/commissions_app_controller.gd`,
+`controllers/dev/dev_console_controller.gd`, `controllers/dev/dev_console_controller.tscn`,
+`project.godot`, `ROADMAP.md`, `tests/test_scene.gd`, `changes.md`.
+
+Tests: added `T-SYNC` (system: validation, version guard, cache, config round-trip, interval and
+cache fallback), `T-SYNC-COM` (sync + commissions: dedup, seen persistence, pending refresh,
+accepted / refused untouched), `T-SYNC-MAIL` (sync + mails: offer mail shape, sender / client,
+accept / refuse buttons, archived offers not refreshed) and `T-CHEAT-SYNC` (cheat + sync: config
+round-trip through the console, manual sync status and resulting offer). 10 tests, 0 failure.
+
+Manual check: launching the game in local mode turns the two `data/commissions.json` entries into
+two offer mails with a single notification; a second launch creates no duplicate.
+
+Why: M5 makes the shared commission feed reach the player without duplicating offers, and gives
+the dev console the controls needed to exercise it before the public repo and M7 push exist.
+
+Out of scope (deliberate): git push (M7), commission editor (M6), auth (M6), removing a
+commission that disappeared from the feed, type / duration tables served by the JSON, cache
+purge, updating already accepted or archived commissions.
+
+Invalidated docs pages: none.
+
+## 2026-10-20 — Sync status, local file viewer and Wi-Fi indicator
+
+The dev console content now scrolls inside its window (`ScrollContainer` between the panel and the
+box), so the sync section stays reachable on the 560x380 window.
+
+The sync section gained a "Fichier local" button that opens a `Fichier local` window showing the raw
+text of the configured local commission file (`controllers/dev/raw_file_controller.gd` / `.tscn`,
+read-only, with a refresh button and the resolved path), plus a "Dernière sync" line reporting the
+last attempt as `YYYY-MM-DD HH:MM:SS — succès|échec` in local time. The console now listens to
+`sync_finished` for its whole lifetime, so a background or Wi-Fi triggered sync also refreshes that
+line; `mode_changed` keeps the mode selector in step when the mode is changed elsewhere.
+
+`SyncManager` gained `mode_changed`, `last_sync_at`, `last_sync_ok`, `last_sync_mode`, `set_mode()`
+(validated, emits only on change) and `get_last_sync_text()`. A remote fetch with an empty URL now
+counts as a failed sync instead of silently falling back to the local file, and `sync_finished`'s
+`reachable` now reports the *source*, not the data: a cache fallback still applies the cache but
+reports the source as unreachable, so a broken local path or remote URL is visible instead of being
+hidden by the cache.
+
+The taskbar shows a Wi-Fi indicator at the bottom right, before the clock
+(`components/wifi/wifi_indicator.gd` / `.tscn`), with exactly three states: local (barred Wi-Fi,
+grey), distant (Wi-Fi, green) and error (Wi-Fi with an alert, red). The error state replaces the
+mode when the last sync of the *current* mode failed, so switching mode immediately clears a stale
+error; a failed sync also raises a "Synchronisation impossible" notification, once per error
+transition. Clicking the icon toggles local ↔ distant, saves the config and fetches immediately; the
+dev console config does the same through `set_mode()`. The three icons are Material Design Icons
+(Apache 2.0, `components/wifi/icons/`, notice included), parsed at runtime with
+`Image.load_svg_from_string` and tinted with the new `Palette.WIFI_REMOTE` / `WIFI_LOCAL` /
+`WIFI_ERROR` colours.
+
+Files touched: `components/wifi/wifi_indicator.gd` (new), `components/wifi/wifi_indicator.tscn`
+(new), `components/wifi/icons/` (new), `controllers/dev/raw_file_controller.gd` (new),
+`controllers/dev/raw_file_controller.tscn` (new), `controllers/dev/dev_console_controller.gd`,
+`controllers/dev/dev_console_controller.tscn`, `controllers/desktop/desktop_controller.gd`,
+`controllers/desktop/desktop_controller.tscn`, `managers/sync_manager.gd`, `managers/palette.gd`,
+`tests/test_scene.gd`, `changes.md`.
+
+Tests: added `T-WIFI` (Wi-Fi + sync: local is the local state, a stale error clears when the mode
+changes, a click switches to distant and saves the config, distant without URL is an error with a
+notification, success is distant, failure is an error, back to local succeeds) and extended
+`T-CHEAT-SYNC` (last sync label reports success, the raw file window opens with the local JSON
+text) and `T-SYNC` (a cache fallback keeps the cache but reports the source unreachable).
+11 tests, 0 failure.
+
+Manual check: the dev console scrolls to the sync section, "Fichier local" shows
+`res://data/commissions.json`, clicking the Wi-Fi icon turns it red with a "Synchronisation
+impossible" notification when no URL is set, and grey once back in local mode.
+
+Why: the sync had no visible state, and the dev console had no way to inspect the feed it reads.
+
+Out of scope (deliberate): exporting the raw `.svg` sources as non-resource files for a future
+export build, editing the local file from the viewer, retry policy, persisting `last_sync_at`
+across launches.
+
+Invalidated docs pages: none.
+
+## 2026-10-20 — Mail notification badges and commission delivery in the roadmap
+
+`ROADMAP.md` gained two future milestones, not implemented: `M8` (notify on every new mail, unread
+badge on the Courrier app button) and `M9` (click a commission to deliver it with an attached image,
+success before the deadline and failure after it, plus a galerie app listing the delivered images).
+
+Files touched: `ROADMAP.md`, `changes.md`.
+
+Invalidated docs pages: none.

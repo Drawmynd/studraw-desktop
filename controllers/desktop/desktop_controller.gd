@@ -6,6 +6,7 @@ const COMMISSIONS_APP_SCENE: PackedScene = preload(
 	"res://controllers/commissions/commissions_app_controller.tscn"
 )
 const DEV_CONSOLE_SCENE: PackedScene = preload("res://controllers/dev/dev_console_controller.tscn")
+const WIFI_INDICATOR_SCRIPT := preload("res://components/wifi/wifi_indicator.gd")
 const CASCADE_ORIGIN := Vector2(96, 72)
 const CASCADE_STEPS := 6
 const NOTIFICATION_DURATION := 6.0
@@ -15,6 +16,7 @@ const NOTIFICATION_DURATION := 6.0
 @onready var window_list: HBoxContainer = %WindowList
 @onready var background: ColorRect = %Background
 @onready var taskbar: PanelContainer = %Taskbar
+@onready var wifi_indicator: Control = %WifiIndicator
 @onready var mail_button: Button = %MailButton
 @onready var commissions_button: Button = %CommissionsButton
 @onready var dev_button: Button = %DevButton
@@ -38,13 +40,17 @@ func _ready() -> void:
 	CommissionManager.commission_reminder.connect(_on_commission_reminder)
 	CommissionManager.commission_completed.connect(_on_commission_completed)
 	CommissionManager.commission_failed.connect(_on_commission_failed)
+	SyncManager.sync_finished.connect(_on_sync_finished)
+	SyncManager.mode_changed.connect(_on_sync_mode_changed)
+	wifi_indicator.pressed.connect(_on_wifi_pressed)
+	_update_wifi_state()
 	MailManager.ensure_welcome_mail()
-	CommissionManager.ensure_demo_offer()
 	_notification_timer = Timer.new()
 	_notification_timer.one_shot = true
 	_notification_timer.wait_time = NOTIFICATION_DURATION
 	_notification_timer.timeout.connect(_on_notification_timeout)
 	add_child(_notification_timer)
+	SyncManager.start()
 
 
 func _apply_palette() -> void:
@@ -114,12 +120,14 @@ func _open_commissions_app() -> void:
 
 
 func _open_dev_console() -> void:
-	open_window("Console dev", DEV_CONSOLE_SCENE.instantiate())
+	var console = DEV_CONSOLE_SCENE.instantiate()
+	console.desktop = self
+	open_window("Console dev", console)
 
 
 func _on_commission_reminder(commission_id: String, hours_remaining: int) -> void:
 	var commission := CommissionManager.get_commission(commission_id)
-	var title := str(commission.get("titre", commission_id))
+	var title := str(commission.get("title", commission_id))
 	_show_notification("Rappel : %s — %d h restantes" % [title, hours_remaining])
 
 
@@ -131,7 +139,48 @@ func _on_commission_completed(commission_id: String) -> void:
 
 func _on_commission_failed(commission_id: String) -> void:
 	var commission := CommissionManager.get_commission(commission_id)
-	_show_notification("Commande échouée : %s" % str(commission.get("titre", commission_id)))
+	_show_notification("Commande échouée : %s" % str(commission.get("title", commission_id)))
+
+
+func _on_sync_finished(reachable: bool, new_offers: int) -> void:
+	var was_error: bool = wifi_indicator.get_state() == WIFI_INDICATOR_SCRIPT.STATE_ERROR
+	_update_wifi_state()
+	if not reachable:
+		if not was_error:
+			_show_notification("Synchronisation impossible : source injoignable")
+		return
+	if new_offers <= 0:
+		return
+	if new_offers == 1:
+		_show_notification("Nouvelle commande reçue")
+		return
+	_show_notification("%d nouvelles commandes reçues" % new_offers)
+
+
+func _on_sync_mode_changed(_mode: String) -> void:
+	_update_wifi_state()
+
+
+func _on_wifi_pressed() -> void:
+	var next_mode := SyncManager.MODE_LOCAL
+	if SyncManager.mode == SyncManager.MODE_LOCAL:
+		next_mode = SyncManager.MODE_REMOTE
+	SyncManager.set_mode(next_mode)
+	SyncManager.save_config()
+	SyncManager.fetch()
+
+
+func _update_wifi_state() -> void:
+	if SyncManager.force_remote_ok:
+		wifi_indicator.set_state(WIFI_INDICATOR_SCRIPT.STATE_REMOTE)
+		return
+	if SyncManager.last_sync_mode == SyncManager.mode and not SyncManager.last_sync_ok:
+		wifi_indicator.set_state(WIFI_INDICATOR_SCRIPT.STATE_ERROR)
+		return
+	if SyncManager.mode == SyncManager.MODE_REMOTE:
+		wifi_indicator.set_state(WIFI_INDICATOR_SCRIPT.STATE_REMOTE)
+		return
+	wifi_indicator.set_state(WIFI_INDICATOR_SCRIPT.STATE_LOCAL)
 
 
 func _show_notification(message: String) -> void:

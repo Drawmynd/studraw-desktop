@@ -24,58 +24,148 @@ offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Box" type="VBoxContainer" parent="Panel"]
+[node name="Scroll" type="ScrollContainer" parent="Panel"]
+unique_name_in_owner = true
 layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Box" type="VBoxContainer" parent="Panel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
-[node name="Header" type="Label" parent="Panel/Box"]
+[node name="Header" type="Label" parent="Panel/Scroll/Box"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Console dev"
 
-[node name="StatusLabel" type="Label" parent="Panel/Box"]
+[node name="StatusLabel" type="Label" parent="Panel/Scroll/Box"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Prêt."
 autowrap_mode = 3
 
-[node name="Separator" type="HSeparator" parent="Panel/Box"]
+[node name="Separator" type="HSeparator" parent="Panel/Scroll/Box"]
 layout_mode = 2
 
-[node name="Buttons" type="GridContainer" parent="Panel/Box"]
+[node name="Buttons" type="GridContainer" parent="Panel/Scroll/Box"]
 unique_name_in_owner = true
 layout_mode = 2
 columns = 2
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 8
 
-[node name="CleanButton" type="Button" parent="Panel/Box/Buttons"]
+[node name="CleanButton" type="Button" parent="Panel/Scroll/Box/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "État de test propre"
 
-[node name="OfferButton" type="Button" parent="Panel/Box/Buttons"]
+[node name="OfferButton" type="Button" parent="Panel/Scroll/Box/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Nouvelle offre"
 
-[node name="Reminder24Button" type="Button" parent="Panel/Box/Buttons"]
+[node name="Reminder24Button" type="Button" parent="Panel/Scroll/Box/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Rappel 24 h"
 
-[node name="Reminder1Button" type="Button" parent="Panel/Box/Buttons"]
+[node name="Reminder1Button" type="Button" parent="Panel/Scroll/Box/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Rappel 1 h"
 
-[node name="FailureButton" type="Button" parent="Panel/Box/Buttons"]
+[node name="FailureButton" type="Button" parent="Panel/Scroll/Box/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Échec"
 
-[node name="SuccessButton" type="Button" parent="Panel/Box/Buttons"]
+[node name="SuccessButton" type="Button" parent="Panel/Scroll/Box/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Succès"
+
+[node name="SyncSeparator" type="HSeparator" parent="Panel/Scroll/Box"]
+layout_mode = 2
+
+[node name="SyncHeader" type="Label" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Synchronisation"
+
+[node name="SyncGrid" type="GridContainer" parent="Panel/Scroll/Box"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="ModeLabel" type="Label" parent="Panel/Scroll/Box/SyncGrid"]
+layout_mode = 2
+text = "Mode"
+
+[node name="ModeOption" type="OptionButton" parent="Panel/Scroll/Box/SyncGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+item_count = 2
+popup/item_0/text = "Local"
+popup/item_0/id = 0
+popup/item_1/text = "Distant"
+popup/item_1/id = 1
+
+[node name="LocalPathLabel" type="Label" parent="Panel/Scroll/Box/SyncGrid"]
+layout_mode = 2
+text = "Chemin local"
+
+[node name="LocalPathEdit" type="LineEdit" parent="Panel/Scroll/Box/SyncGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RemoteUrlLabel" type="Label" parent="Panel/Scroll/Box/SyncGrid"]
+layout_mode = 2
+text = "URL distante"
+
+[node name="RemoteUrlEdit" type="LineEdit" parent="Panel/Scroll/Box/SyncGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="IntervalLabel" type="Label" parent="Panel/Scroll/Box/SyncGrid"]
+layout_mode = 2
+text = "Intervalle (min)"
+
+[node name="IntervalEdit" type="LineEdit" parent="Panel/Scroll/Box/SyncGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SyncButtons" type="HBoxContainer" parent="Panel/Scroll/Box"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SaveConfigButton" type="Button" parent="Panel/Scroll/Box/SyncButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enregistrer la config"
+
+[node name="SyncButton" type="Button" parent="Panel/Scroll/Box/SyncButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Synchroniser"
+
+[node name="RawFileButton" type="Button" parent="Panel/Scroll/Box/SyncButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Fichier local"
+
+[node name="ForceWifiCheck" type="CheckButton" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Forcer Wi-Fi distant OK"
+
+[node name="LastSyncLabel" type="Label" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Dernière sync : —"
+autowrap_mode = 3

@@ -13,9 +13,15 @@ The app does not draw for the player — it motivates them, like a fitness app.
   resolved from a `type -> minutes` dictionary unless the commission sets a `duree` override;
   on accept, `deadline = now + duration_minutes * 60`.
 - **Shared content**: `commissions.json` in a **public** git repo.
-  - Client: fetch over HTTPS raw at startup (`raw.githubusercontent.com`), no git needed.
+  - Client: fetch over HTTPS raw (`raw.githubusercontent.com`), no git needed.
   - Dev: in-game editor writes the JSON into a local clone, then pushes via `git` CLI
     (`OS.execute`), using the machine's credential manager.
+  - Source configured in `user://sync_config.json`: `mode` (`local` | `remote`), `local_path`,
+    `remote_url`, `sync_interval_minutes` (0 disables periodic sync). Default: local
+    `res://data/commissions.json`, so the app works before the public repo exists.
+  - Merge by commission id: unknown ids become offers, already seen ids never duplicate.
+    A higher `version` refreshes offers that are still pending; accepted, refused and archived
+    ones are left untouched. Last good payload is cached in `user://commissions_cache.json`.
 - **Dev password**: SHA-256 hash stored as a constant. Gameplay gate, not real security.
 
 ## Out of scope
@@ -27,7 +33,8 @@ The app does not draw for the player — it motivates them, like a fitness app.
 ## Prerequisites (user side)
 
 - `git init` + initial commit in the project.
-- A **public** GitHub repo + its raw URL for `data/commissions.json`.
+- A **public** GitHub repo + its raw URL for `data/commissions.json`. Not needed before M5's
+  `remote` mode is enabled: `local` mode reads `res://data/commissions.json`.
 - `git` installed and credentials configured on the dev machine.
 
 ## Stack
@@ -43,16 +50,26 @@ The app does not draw for the player — it motivates them, like a fitness app.
     { "version": 3, "updated_at": 1234567890,
       "commissions": [
         { "id": "uuid", "title": "...", "type": "illustration", "duration": null,
+          "client": "...", "sender": "...",
           "description": "...", "mail_request": "...", "mail_success": "...",
           "mail_failure": "..." }
       ] }
 
+`client` is the human or company commissioning the work; `sender` is the mail sender and may
+differ from the client (e.g. `prenom@entreprise.fr`). Mails carry a `sender` field.
+
 `user://save.json` (player state, never shared):
 
-    { "mails": [...],
-      "commissions": [ { "id": "uuid", "statut": "active|success|failed",
-                         "accepted_at": 0, "deadline": 0 } ] }
+    { "mails": [ { "id": "...", "sender": "...", "subject": "...", "body": "...",
+                   "read": false, "archived": false, "type": "commission_offer",
+                   "commission": { ... } } ],
+      "commissions": [ { "id": "uuid", "status": "active|success|failed",
+                         "accepted_at": 0, "deadline": 0 } ],
+      "refused": [ "uuid" ],
+      "seen_commissions": [ "uuid" ] }
 
+`user://sync_config.json` (player machine): sync source, see Fixed decisions.
+`user://commissions_cache.json`: last successfully fetched payload.
 `user://dev_config.json` (dev machine only): path to the local git clone.
 
 ## Milestones
@@ -88,10 +105,15 @@ Each milestone is one logical change / one commit.
   and persist across restarts.
 
 ### M5 — Sync (read)
-- `SyncManager.fetch()`: HTTPS raw → parse → cache to `user://`.
-- Merge unknown commission ids into `CommissionManager`, each fires a
-  "new commission" mail. Offline fallback to cache.
-- Done when: a new commission pushed to the repo shows up as mail on next launch.
+- `SyncManager`: local file or HTTPS raw, configured in `user://sync_config.json`, fetch at
+  startup and every `sync_interval_minutes`.
+- Parse, cache to `user://commissions_cache.json`, offline fallback to cache.
+- Merge by id into `CommissionManager`: unknown ids create a `commission_offer` mail once
+  (`seen_commissions`), a higher `version` refreshes pending offers only, duplicates are
+  impossible. No commission is ever removed by a sync.
+- Dev console edits the sync config and triggers a sync manually.
+- Done when: a commission added to the source shows up as a single mail, and editing a pending
+  commission with a higher `version` updates it without creating a second mail.
 
 ### M6 — Dev account + editor
 - `AuthManager`: SHA-256 constant, `verify()`, `is_dev_session`.
@@ -105,6 +127,19 @@ Each milestone is one logical change / one commit.
 - Publish button shows git stdout / stderr in the console.
 - Done when: pressing Publish commits and pushes, and a client picks it up (M5).
 
+### M8 — Mail notifications and icon badges
+- Notify on every new mail (offer, success, failure, reminder), not only new commission offers.
+- Unread badge (pastille) on the Courrier app button, cleared when the mails are read.
+- Done when: a new mail shows a notification and a badge, and the badge clears once read.
+
+### M9 — Commission delivery with an image, and a gallery app
+- Clicking a commission opens a delivery view where the player attaches an image.
+- Delivering before the deadline completes the commission (success mail); a deadline already
+  passed fails it, without a delivery.
+- A galerie app lists the delivered commissions with their image and date.
+- Done when: a commission is delivered with an image in time (success) or late (failure), and the
+  image is listed in the galerie.
+
 ## Risks
 
 - `res://` is read-only in an exported build → dev push must target a configured local
@@ -117,5 +152,9 @@ Each milestone is one logical change / one commit.
 - `AuthManager.verify`: correct password → true, wrong → false.
 - `CommissionManager.accept`: `deadline == accepted_at + duration_minutes * 60` (override or type default).
 - Expiry → status `failed` + exactly one failure mail.
-- Sync merge: only unknown ids produce a "new commission" mail.
+- Sync merge: only unknown ids produce a "new commission" mail; version guard and cache.
+- Sync + commissions: pending offer refreshed on a higher version, accepted / refused / archived
+  untouched.
+- Sync + mails: offer mail shape (unread, unarchived, sender, client), no duplicate mail ids.
+- Cheat + sync: config round-trip and manual sync status.
 - `save.json` round-trip: write then read returns identical state.

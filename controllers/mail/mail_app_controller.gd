@@ -271,12 +271,23 @@ func _show_empty() -> void:
 	body_label.text = ""
 
 
+func _mail_sender_text(mail: Dictionary) -> String:
+	var sender := str(mail.get("sender", ""))
+	var commission = mail.get("commission", {})
+	if not (commission is Dictionary) or commission.is_empty():
+		return sender
+	var client := str(commission.get("client", ""))
+	if client == "":
+		return sender
+	return "%s — client : %s" % [sender, client]
+
+
 func _show_mail(id: String) -> void:
 	var mail: Dictionary = mail_manager.get_mail(id)
 	if mail.is_empty():
 		_show_empty()
 		return
-	from_label.text = "De : %s" % mail["from"]
+	from_label.text = "De : %s" % _mail_sender_text(mail)
 	subject_label.text = str(mail["subject"])
 	body_label.text = str(mail["body"])
 	body_label.scroll_to_line(0)

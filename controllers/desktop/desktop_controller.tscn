@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" uid="uid://dqrcq6dnnjyyn" path="res://controllers/desktop/desktop_controller.gd" id="1_desktop"]
+[ext_resource type="PackedScene" path="res://components/wifi/wifi_indicator.tscn" id="2_wifi"]
 
 [node name="DesktopController" type="Control"]
 layout_mode = 3
@@ -105,6 +106,10 @@ theme_override_constants/separation = 6
 [node name="Spacer" type="Control" parent="Taskbar/TaskbarRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="WifiIndicator" parent="Taskbar/TaskbarRow" instance=ExtResource("2_wifi")]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="ClockLabel" type="Label" parent="Taskbar/TaskbarRow"]
 unique_name_in_owner = true

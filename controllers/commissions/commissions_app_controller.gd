@@ -71,7 +71,8 @@ func _make_row(commission: Dictionary) -> PanelContainer:
 	title.add_theme_font_size_override("font_size", 16)
 	box.add_child(title)
 	var meta := Label.new()
-	meta.text = "Type : %s — durée : %s" % [
+	meta.text = "Client : %s — type : %s — durée : %s" % [
+		str(commission.get("client", "")),
 		str(commission.get("type", "")),
 		_format_duration(int(commission.get("duration_minutes", 0))),
 	]

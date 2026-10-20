@@ -34,7 +34,7 @@ func ensure_welcome_mail() -> void:
 		return
 	_mails.append({
 		"id": "bienvenue",
-		"from": "Studio Studraw",
+		"sender": "Studio Studraw",
 		"subject": "Bienvenue dans votre atelier",
 		"body": "Bonjour,\n\nVotre atelier est prêt. Les commandes arriveront ici, dans votre boîte de réception.\n\nBonne création !",
 		"received_at": int(Time.get_unix_time_from_system()),
@@ -84,6 +84,21 @@ func add_mail(mail: Dictionary) -> void:
 	mails_changed.emit()
 
 
+func update_mail(id: String, changes: Dictionary) -> void:
+	for index in _mails.size():
+		if _mails[index]["id"] != id:
+			continue
+		var updated := _mails[index].duplicate(true)
+		updated.merge(changes, true)
+		var normalized := _normalize_mail(updated)
+		if normalized == _mails[index]:
+			return
+		_mails[index] = normalized
+		save_state()
+		mails_changed.emit()
+		return
+
+
 func mark_read(id: String) -> void:
 	for mail in _mails:
 		if mail["id"] != id:
@@ -131,7 +146,7 @@ func _normalize_mail(entry: Dictionary) -> Dictionary:
 		commission = entry["commission"].duplicate(true)
 	return {
 		"id": str(entry.get("id", "")),
-		"from": str(entry.get("from", "")),
+		"sender": str(entry.get("sender", entry.get("from", ""))),
 		"subject": str(entry.get("subject", "")),
 		"body": str(entry.get("body", "")),
 		"received_at": int(entry.get("received_at", 0)),

@@ -1,0 +1,5 @@
+Wi-Fi icons: Material Design Icons (Pictogrammers), Apache License 2.0.
+Sources:
+https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/svg/wifi.svg
+https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/svg/wifi-off.svg
+https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/svg/wifi-alert.svg

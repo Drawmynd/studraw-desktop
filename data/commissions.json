@@ -1,0 +1,30 @@
+{
+	"version": 1,
+	"updated_at": 1792454400,
+	"commissions": [
+		{
+			"id": "comm-2026-001",
+			"title": "Affiche pour la fête du port",
+			"type": "affiche",
+			"duration": null,
+			"client": "Brasserie du Port",
+			"sender": "camille@brasserie-du-port.fr",
+			"description": "Une affiche pour la fête du port, format A2, ambiance maritime.",
+			"mail_request": "Bonjour,\n\nNous organisons la fête du port le mois prochain et il nous faut une affiche format A2.\n\nCamille, Brasserie du Port",
+			"mail_success": "L'affiche est superbe, merci beaucoup !",
+			"mail_failure": "Nous n'avons pas reçu l'affiche à temps, c'est dommage."
+		},
+		{
+			"id": "comm-2026-002",
+			"title": "Croquis de personnage",
+			"type": "croquis",
+			"duration": 90,
+			"client": "Léa Moreau",
+			"sender": "lea.moreau@example.com",
+			"description": "Un croquis de personnage pour un projet personnel.",
+			"mail_request": "Salut,\n\nJ'aimerais un croquis de personnage pour un projet perso, sans contrainte de style.\n\nLéa",
+			"mail_success": "Merci, le croquis est exactement ce que je voulais.",
+			"mail_failure": "Tant pis pour le croquis, ce sera pour une prochaine fois."
+		}
+	]
+}

@@ -26,6 +26,7 @@ var clock_manager: Node
 
 var _commissions: Array[Dictionary] = []
 var _refused: Array[String] = []
+var _seen: Array[String] = []
 var _definitions: Dictionary = {}
 
 
@@ -66,6 +67,8 @@ func accept(commission: Dictionary, now: int = -1) -> String:
 		"type": str(definition["type"]),
 		"duration": definition["duration"],
 		"duration_minutes": duration_minutes,
+		"client": str(definition["client"]),
+		"sender": str(definition["sender"]),
 		"description": str(definition["description"]),
 		"mail_request": str(definition["mail_request"]),
 		"mail_success": str(definition["mail_success"]),
@@ -90,6 +93,7 @@ func refuse(commission_id: String) -> void:
 func clear_all() -> void:
 	_commissions.clear()
 	_refused.clear()
+	_seen.clear()
 	_definitions.clear()
 	save_state()
 	commissions_changed.emit()
@@ -107,7 +111,7 @@ func complete(commission_id: String) -> void:
 	var body := str(state.get("mail_success", ""))
 	if body == "":
 		body = "Votre commande « %s » est terminée." % title
-	_send_mail("succes_%s" % commission_id, "Succès : %s" % title, body)
+	_send_mail("succes_%s" % commission_id, _mail_sender(state), "Succès : %s" % title, body)
 
 
 func check_deadlines(now: int = -1) -> void:
@@ -125,7 +129,12 @@ func check_deadlines(now: int = -1) -> void:
 			var fail_body := str(state.get("mail_failure", ""))
 			if fail_body == "":
 				fail_body = "Le délai de la commande « %s » est dépassé." % str(state["title"])
-			_send_mail("echec_%s" % commission_id, "Échec : %s" % str(state["title"]), fail_body)
+			_send_mail(
+				"echec_%s" % commission_id,
+				_mail_sender(state),
+				"Échec : %s" % str(state["title"]),
+				fail_body
+			)
 		elif remaining <= SECONDS_PER_HOUR:
 			if not bool(state["reminded_1"]):
 				state["reminded_1"] = true
@@ -134,6 +143,7 @@ func check_deadlines(now: int = -1) -> void:
 				commission_reminder.emit(commission_id, 1)
 				_send_mail(
 					"rappel_1_%s" % commission_id,
+					_mail_sender(state),
 					"Rappel : %s" % str(state["title"]),
 					"Il reste moins d'une heure pour terminer « %s »." % str(state["title"])
 				)
@@ -144,6 +154,7 @@ func check_deadlines(now: int = -1) -> void:
 				commission_reminder.emit(commission_id, 24)
 				_send_mail(
 					"rappel_24_%s" % commission_id,
+					_mail_sender(state),
 					"Rappel : %s" % str(state["title"]),
 					"Il reste moins de 24 heures pour terminer « %s »." % str(state["title"])
 				)
@@ -194,6 +205,7 @@ func get_duration_minutes(commission: Dictionary) -> int:
 func load_state() -> void:
 	_commissions.clear()
 	_refused.clear()
+	_seen.clear()
 	if not FileAccess.file_exists(save_path):
 		return
 	var file := FileAccess.open(save_path, FileAccess.READ)
@@ -210,6 +222,9 @@ func load_state() -> void:
 	if parsed.get("refused") is Array:
 		for entry in parsed["refused"]:
 			_refused.append(str(entry))
+	if parsed.get("seen_commissions") is Array:
+		for entry in parsed["seen_commissions"]:
+			_seen.append(str(entry))
 
 
 func save_state() -> void:
@@ -223,6 +238,7 @@ func save_state() -> void:
 				data = parsed
 	data["commissions"] = _commissions
 	data["refused"] = _refused
+	data["seen_commissions"] = _seen
 	var file := FileAccess.open(save_path, FileAccess.WRITE)
 	if file == null:
 		return
@@ -230,33 +246,58 @@ func save_state() -> void:
 	file.close()
 
 
-func ensure_demo_offer() -> void:
+func create_offer(commission: Dictionary) -> bool:
+	var definition := _normalize_commission(commission)
+	var commission_id := str(definition["id"])
+	if commission_id == "":
+		return false
+	if _seen.has(commission_id) or not _find_state(commission_id).is_empty():
+		return false
+	if _refused.has(commission_id):
+		return false
+	_seen.append(commission_id)
+	_definitions[commission_id] = definition.duplicate(true)
+	save_state()
 	if mail_manager == null:
-		return
-	for mail in mail_manager.get_mails(true):
-		if str(mail.get("type", "")) == "commission_offer":
-			return
-	if not _commissions.is_empty() or not _refused.is_empty():
-		return
-	var commission := {
-		"id": "demo-illustration",
-		"title": "Illustration de couverture",
-		"type": "illustration",
-		"duration": null,
-		"description": "Une illustration de couverture pour un recueil de nouvelles.",
-		"mail_request": "Bonjour,\n\nJ'aimerais une illustration de couverture pour un recueil de nouvelles.\n\nMerci !",
-		"mail_success": "Merci beaucoup, l'illustration est parfaite.",
-		"mail_failure": "Le délai est dépassé, je vais devoir trouver une autre solution.",
-	}
+		return true
 	mail_manager.add_mail({
-		"id": "offre_demo",
-		"from": "Studio Studraw",
-		"subject": "Nouvelle commande : %s" % str(commission["title"]),
-		"body": str(commission["mail_request"]),
+		"id": _offer_mail_id(commission_id),
+		"sender": _mail_sender(definition),
+		"subject": "Nouvelle commande : %s" % str(definition["title"]),
+		"body": str(definition["mail_request"]),
 		"received_at": _now(),
 		"type": "commission_offer",
-		"commission": commission,
+		"commission": definition.duplicate(true),
 	})
+	return true
+
+
+func refresh_offer(commission: Dictionary) -> bool:
+	var definition := _normalize_commission(commission)
+	var commission_id := str(definition["id"])
+	if commission_id == "" or mail_manager == null:
+		return false
+	if not _seen.has(commission_id):
+		return false
+	if not _find_state(commission_id).is_empty() or _refused.has(commission_id):
+		return false
+	var mail_id := _offer_mail_id(commission_id)
+	var mail: Dictionary = mail_manager.get_mail(mail_id)
+	if mail.is_empty() or bool(mail.get("archived", false)):
+		return false
+	_definitions[commission_id] = definition.duplicate(true)
+	save_state()
+	mail_manager.update_mail(mail_id, {
+		"sender": _mail_sender(definition),
+		"subject": "Nouvelle commande : %s" % str(definition["title"]),
+		"body": str(definition["mail_request"]),
+		"commission": definition.duplicate(true),
+	})
+	return true
+
+
+func has_seen(commission_id: String) -> bool:
+	return _seen.has(commission_id)
 
 
 func _on_minute_tick() -> void:
@@ -270,16 +311,30 @@ func _find_state(commission_id: String) -> Dictionary:
 	return {}
 
 
-func _send_mail(mail_id: String, subject: String, body: String) -> void:
+func _send_mail(mail_id: String, sender: String, subject: String, body: String) -> void:
 	if mail_manager == null:
 		return
 	mail_manager.add_mail({
 		"id": mail_id,
-		"from": "Studio Studraw",
+		"sender": sender,
 		"subject": subject,
 		"body": body,
 		"received_at": _now(),
 	})
+
+
+func _offer_mail_id(commission_id: String) -> String:
+	return "offre_%s" % commission_id
+
+
+func _mail_sender(commission: Dictionary) -> String:
+	var sender := str(commission.get("sender", ""))
+	if sender != "":
+		return sender
+	var client := str(commission.get("client", ""))
+	if client != "":
+		return client
+	return "Studio Studraw"
 
 
 func _resolve_duration_minutes(commission: Dictionary) -> int:
@@ -304,6 +359,8 @@ func _normalize_commission(entry: Dictionary) -> Dictionary:
 		"title": str(entry.get("title", "")),
 		"type": str(entry.get("type", "")),
 		"duration": entry.get("duration", null),
+		"client": str(entry.get("client", "")),
+		"sender": str(entry.get("sender", "")),
 		"description": str(entry.get("description", "")),
 		"mail_request": str(entry.get("mail_request", "")),
 		"mail_success": str(entry.get("mail_success", "")),
@@ -323,6 +380,8 @@ func _normalize_state(entry: Dictionary) -> Dictionary:
 		"type": str(entry.get("type", "")),
 		"duration": entry.get("duration", null),
 		"duration_minutes": int(entry.get("duration_minutes", 0)),
+		"client": str(entry.get("client", "")),
+		"sender": str(entry.get("sender", "")),
 		"description": str(entry.get("description", "")),
 		"mail_request": str(entry.get("mail_request", "")),
 		"mail_success": str(entry.get("mail_success", "")),

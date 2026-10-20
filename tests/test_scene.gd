@@ -1,5 +1,17 @@
 extends Node
 
+const WIFI_INDICATOR_SCRIPT := preload("res://components/wifi/wifi_indicator.gd")
+
+
+class FakeDesktop:
+	extends Node
+
+	var windows: Array[Dictionary] = []
+
+	func open_window(title: String, content: Control) -> void:
+		windows.append({"title": title, "content": content})
+		add_child(content)
+
 
 func _ready() -> void:
 	_run.call_deferred()
@@ -12,6 +24,11 @@ func _run() -> void:
 	results["T-DSK"] = await _test_desktop_controller()
 	results["T-MAIL"] = _test_mail_manager()
 	results["T-COM"] = await _test_commission_manager()
+	results["T-SYNC"] = await _test_sync_manager()
+	results["T-SYNC-COM"] = await _test_sync_commission_merge()
+	results["T-SYNC-MAIL"] = await _test_sync_mail_offers()
+	results["T-CHEAT-SYNC"] = await _test_cheat_sync()
+	results["T-WIFI"] = await _test_wifi_indicator()
 	results["T-PAL"] = _test_palette()
 	var failure_count := 0
 	for test_name in results:
@@ -217,7 +234,7 @@ func _test_mail_manager() -> Array[String]:
 		failures.append("persistence: read state not reloaded")
 	manager.add_mail({
 		"id": "autre",
-		"from": "Client",
+		"sender": "Client",
 		"subject": "Test",
 		"body": "Corps",
 		"received_at": 1,
@@ -268,7 +285,7 @@ func _test_commission_manager() -> Array[String]:
 	}
 	mail_manager.add_mail({
 		"id": "offre_test_mail",
-		"from": "Studio Studraw",
+		"sender": "Studio Studraw",
 		"subject": "New commission: Test poster",
 		"body": "Please produce this poster.",
 		"received_at": 1,
@@ -372,6 +389,485 @@ func _test_commission_manager() -> Array[String]:
 	await get_tree().process_frame
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 	return failures
+
+
+func _test_sync_manager() -> Array[String]:
+	var failures: Array[String] = []
+	var save_path := "user://test_sync_%d.json" % Time.get_ticks_usec()
+	var cache_path := "user://test_sync_cache_%d.json" % Time.get_ticks_usec()
+	var config_path := "user://test_sync_config_%d.json" % Time.get_ticks_usec()
+	var isolated := _make_isolated_managers(save_path)
+	var sync = load("res://managers/sync_manager.gd").new()
+	add_child(sync)
+	await get_tree().process_frame
+	sync.cache_path = cache_path
+	sync.config_path = config_path
+	sync.commission_manager = isolated["commission_manager"]
+	sync.mode = "local"
+	sync.local_path = "user://test_sync_missing_%d.json" % Time.get_ticks_usec()
+	sync.remote_url = ""
+	sync.apply_interval(0)
+
+	var first_payload := {
+		"version": 2,
+		"updated_at": 5,
+		"commissions": [_payload_definition("sync_a", "Sync A")],
+	}
+	if sync.apply_payload(first_payload) != 1:
+		failures.append("apply: expected 1 new offer")
+	var cache: Dictionary = sync.load_cache()
+	if int(cache.get("version", 0)) != 2:
+		failures.append("cache: version not stored")
+	if not (cache.get("commissions") is Array) or cache["commissions"].size() != 1:
+		failures.append("cache: commissions not stored")
+
+	if sync.apply_payload({
+		"version": 1,
+		"commissions": [_payload_definition("sync_b", "Sync B")],
+	}) != 0:
+		failures.append("version guard: older payload applied")
+	if not isolated["mail_manager"].get_mail("offre_sync_b").is_empty():
+		failures.append("version guard: older payload created an offer")
+
+	if sync.apply_payload({}) != 0:
+		failures.append("validation: empty payload accepted")
+	if sync.apply_payload({"version": 3, "commissions": "nope"}) != 0:
+		failures.append("validation: non-array commissions accepted")
+	if int(sync.load_cache().get("version", 0)) != 2:
+		failures.append("validation: cache overwritten by invalid payload")
+	if sync.apply_payload({"version": 3, "commissions": [{"title": "no id"}, 7]}) != 0:
+		failures.append("validation: invalid entries accepted")
+	if int(sync.load_cache().get("version", 0)) != 2:
+		failures.append("validation: cache overwritten by empty entries")
+
+	var finished := {"count": 0, "reachable": -1, "offers": -1}
+	sync.sync_finished.connect(
+		func(reachable: bool, new_offers: int) -> void:
+			finished["count"] += 1
+			finished["reachable"] = 1 if reachable else 0
+			finished["offers"] = new_offers
+	)
+	sync.fetch()
+	if finished["count"] != 1 or finished["reachable"] != 0 or finished["offers"] != 0:
+		failures.append("offline fetch: cache applied but source reported reachable")
+	if int(sync.load_cache().get("version", 0)) != 2:
+		failures.append("offline fetch: cache lost")
+
+	sync.cache_path = "user://test_sync_empty_%d.json" % Time.get_ticks_usec()
+	sync.fetch()
+	if finished["reachable"] != 0:
+		failures.append("offline fetch without cache: expected unreachable")
+
+	sync.cache_path = cache_path
+	sync.apply_interval(0)
+	if not sync._timer.is_stopped():
+		failures.append("interval 0: timer still running")
+	sync.apply_interval(30)
+	if sync._timer.is_stopped() or not is_equal_approx(sync._timer.wait_time, 1800.0):
+		failures.append("interval 30: timer not configured")
+	sync.apply_interval(0)
+
+	sync.mode = "remote"
+	sync.local_path = "user://configured_%d.json" % Time.get_ticks_usec()
+	sync.remote_url = "https://example.invalid/commissions.json"
+	sync.sync_interval_minutes = 7
+	sync.save_config()
+	var reloaded = load("res://managers/sync_manager.gd").new()
+	reloaded.config_path = config_path
+	reloaded.load_config()
+	if reloaded.mode != "remote":
+		failures.append("config: mode not reloaded")
+	if reloaded.remote_url != sync.remote_url:
+		failures.append("config: remote url not reloaded")
+	if reloaded.sync_interval_minutes != 7:
+		failures.append("config: interval not reloaded")
+	if reloaded.local_path != sync.local_path:
+		failures.append("config: local path not reloaded")
+	reloaded.free()
+
+	sync.queue_free()
+	isolated["mail_manager"].free()
+	isolated["commission_manager"].free()
+	await get_tree().process_frame
+	_remove_file(save_path)
+	_remove_file(cache_path)
+	_remove_file(config_path)
+	return failures
+
+
+func _test_sync_commission_merge() -> Array[String]:
+	var failures: Array[String] = []
+	var save_path := "user://test_sync_com_%d.json" % Time.get_ticks_usec()
+	var cache_path := "user://test_sync_com_cache_%d.json" % Time.get_ticks_usec()
+	var isolated := _make_isolated_managers(save_path)
+	var mail_manager = isolated["mail_manager"]
+	var commission_manager = isolated["commission_manager"]
+	var sync = load("res://managers/sync_manager.gd").new()
+	sync.cache_path = cache_path
+	sync.commission_manager = commission_manager
+
+	var payload := {
+		"version": 1,
+		"commissions": [
+			_payload_definition("com_a", "A"),
+			_payload_definition("com_b", "B"),
+			_payload_definition("com_c", "C"),
+			_payload_definition("com_a", "A bis"),
+		],
+	}
+	if sync.apply_payload(payload) != 3:
+		failures.append("merge: expected 3 offers")
+	if not commission_manager.has_seen("com_a") or not commission_manager.has_seen("com_c"):
+		failures.append("merge: ids not marked as seen")
+	if mail_manager.get_mail("offre_com_a").is_empty():
+		failures.append("merge: offer mail missing")
+	if str(commission_manager.get_commission("com_a").get("client", "")) != "Client com_a":
+		failures.append("merge: client not stored on the definition")
+	if str(mail_manager.get_mail("offre_com_a").get("sender", "")) != "sender@com_a.example":
+		failures.append("merge: mail sender does not come from the commission")
+
+	if sync.apply_payload(payload) != 0:
+		failures.append("replay: offers created again")
+	if mail_manager.get_mails(true).size() != 3:
+		failures.append("replay: duplicate mails (%d)" % mail_manager.get_mails(true).size())
+
+	commission_manager.accept(_payload_definition("com_b", "B"))
+	commission_manager.refuse("com_a")
+	mail_manager.mark_read("offre_com_c")
+
+	var second_payload := {
+		"version": 2,
+		"commissions": [
+			_payload_definition("com_a", "A modifiée"),
+			_payload_definition("com_b", "B modifiée"),
+			_payload_definition("com_c", "C modifiée"),
+			_payload_definition("com_d", "D"),
+		],
+	}
+	if sync.apply_payload(second_payload) != 1:
+		failures.append("merge: expected 1 new offer after update")
+	if str(commission_manager.get_commission("com_b").get("title", "")) != "B":
+		failures.append("merge: accepted commission was modified")
+	if str(commission_manager.get_commission("com_c").get("title", "")) != "C modifiée":
+		failures.append("merge: pending offer not refreshed")
+	if not str(mail_manager.get_mail("offre_com_c").get("subject", "")).contains("C modifiée"):
+		failures.append("merge: pending offer mail not refreshed")
+	if not bool(mail_manager.get_mail("offre_com_c").get("read", false)):
+		failures.append("merge: refresh reset the read state")
+	if str(mail_manager.get_mail("offre_com_a").get("subject", "")).contains("modifiée"):
+		failures.append("merge: refused offer was refreshed")
+
+	var reloaded = load("res://managers/commission_manager.gd").new()
+	reloaded.save_path = save_path
+	reloaded.load_state()
+	if not reloaded.has_seen("com_a") or not reloaded.has_seen("com_d"):
+		failures.append("persistence: seen ids not reloaded")
+	reloaded.free()
+
+	sync.free()
+	mail_manager.free()
+	commission_manager.free()
+	_remove_file(save_path)
+	_remove_file(cache_path)
+	return failures
+
+
+func _test_sync_mail_offers() -> Array[String]:
+	var failures: Array[String] = []
+	var save_path := "user://test_sync_mail_%d.json" % Time.get_ticks_usec()
+	var cache_path := "user://test_sync_mail_cache_%d.json" % Time.get_ticks_usec()
+	var isolated := _make_isolated_managers(save_path)
+	var mail_manager = isolated["mail_manager"]
+	var commission_manager = isolated["commission_manager"]
+	var sync = load("res://managers/sync_manager.gd").new()
+	sync.cache_path = cache_path
+	sync.commission_manager = commission_manager
+	var mail_changes := {"value": 0}
+	mail_manager.mails_changed.connect(func() -> void: mail_changes["value"] += 1)
+
+	sync.apply_payload({
+		"version": 1,
+		"commissions": [
+			_payload_definition("com_m1", "M1"),
+			_payload_definition("com_m2", "M2"),
+		],
+	})
+	var mails: Array[Dictionary] = mail_manager.get_mails(true)
+	if mails.size() != 2:
+		failures.append("offers: expected 2 mails, got %d" % mails.size())
+	for mail in mails:
+		if str(mail.get("type", "")) != "commission_offer":
+			failures.append("offers: mail %s is not a commission offer" % mail["id"])
+		if bool(mail.get("read", false)) or bool(mail.get("archived", false)):
+			failures.append("offers: mail %s is read or archived" % mail["id"])
+		if not str(mail["id"]).begins_with("offre_com_m"):
+			failures.append("offers: unexpected mail id %s" % mail["id"])
+		if not (mail.get("commission") is Dictionary):
+			failures.append("offers: mail %s has no commission" % mail["id"])
+		if str(mail["commission"].get("client", "")) == "":
+			failures.append("offers: mail %s has no client" % mail["id"])
+		if mail["sender"] != "sender@%s.example" % str(mail["commission"]["id"]):
+			failures.append("offers: mail %s has a wrong sender" % mail["id"])
+	if mail_changes["value"] != 2:
+		failures.append("offers: expected 2 mail signals, got %d" % mail_changes["value"])
+
+	var mail_app = load("res://controllers/mail/mail_app_controller.tscn").instantiate()
+	mail_app.mail_manager = mail_manager
+	mail_app.commission_manager = commission_manager
+	add_child(mail_app)
+	await get_tree().process_frame
+	mail_app.select_mail("offre_com_m1")
+	if not mail_app.accept_button.visible or not mail_app.refuse_button.visible:
+		failures.append("offers: accept / refuse buttons hidden")
+
+	var original_subject := str(mail_manager.get_mail("offre_com_m1")["subject"])
+	var total_before: int = mail_manager.get_mails(true).size()
+	mail_manager.archive_mail("offre_com_m1")
+	sync.apply_payload({
+		"version": 2,
+		"commissions": [_payload_definition("com_m1", "M1 modifiée")],
+	})
+	if mail_manager.get_mails(true).size() != total_before:
+		failures.append("offers: archived offer duplicated")
+	if not bool(mail_manager.get_mail("offre_com_m1")["archived"]):
+		failures.append("offers: archived flag lost")
+	if str(mail_manager.get_mail("offre_com_m1")["subject"]) != original_subject:
+		failures.append("offers: archived offer refreshed")
+
+	mail_app.queue_free()
+	sync.free()
+	mail_manager.free()
+	commission_manager.free()
+	await get_tree().process_frame
+	_remove_file(save_path)
+	_remove_file(cache_path)
+	return failures
+
+
+func _test_cheat_sync() -> Array[String]:
+	var failures: Array[String] = []
+	var save_path := "user://test_cheat_sync_%d.json" % Time.get_ticks_usec()
+	var cache_path := "user://test_cheat_sync_cache_%d.json" % Time.get_ticks_usec()
+	var config_path := "user://test_cheat_sync_config_%d.json" % Time.get_ticks_usec()
+	var feed_path := "user://test_cheat_sync_feed_%d.json" % Time.get_ticks_usec()
+	var isolated := _make_isolated_managers(save_path)
+	var sync = load("res://managers/sync_manager.gd").new()
+	add_child(sync)
+	await get_tree().process_frame
+	sync.config_path = config_path
+	sync.cache_path = cache_path
+	sync.commission_manager = isolated["commission_manager"]
+	sync.mode = "local"
+	sync.local_path = feed_path
+	sync.apply_interval(0)
+
+	var console = load("res://controllers/dev/dev_console_controller.tscn").instantiate()
+	console.sync_manager = sync
+	add_child(console)
+	await get_tree().process_frame
+
+	console.mode_option.selected = 1
+	console.remote_url_edit.text = "https://example.invalid/commissions.json"
+	console.local_path_edit.text = "user://cheat_clone/commissions.json"
+	console.interval_edit.text = "9"
+	console.save_sync_config()
+	if not FileAccess.file_exists(config_path):
+		failures.append("cheat config: file not written")
+	var reloaded = load("res://managers/sync_manager.gd").new()
+	reloaded.config_path = config_path
+	reloaded.load_config()
+	if reloaded.mode != "remote" or reloaded.sync_interval_minutes != 9:
+		failures.append("cheat config: mode or interval not saved")
+	if reloaded.remote_url != "https://example.invalid/commissions.json":
+		failures.append("cheat config: remote url not saved")
+	if reloaded.local_path != "user://cheat_clone/commissions.json":
+		failures.append("cheat config: local path not saved")
+	reloaded.free()
+
+	_write_json(feed_path, {
+		"version": 1,
+		"commissions": [_payload_definition("cheat_sync_a", "Cheat sync")],
+	})
+	console.mode_option.selected = 0
+	console.local_path_edit.text = feed_path
+	console.interval_edit.text = "0"
+	console.save_sync_config()
+	if not sync._timer.is_stopped():
+		failures.append("cheat config: interval 0 did not stop the timer")
+	console.sync_now()
+	if not console.status_label.text.contains("1"):
+		failures.append("cheat sync: status does not report the new offer")
+	if isolated["mail_manager"].get_mail("offre_cheat_sync_a").is_empty():
+		failures.append("cheat sync: offer mail missing")
+	if console.last_sync_label.text == "Dernière sync : —":
+		failures.append("cheat sync: last sync label not updated")
+	if not console.last_sync_label.text.contains("succès"):
+		failures.append("cheat sync: last sync label does not report success")
+
+	var fake_desktop := FakeDesktop.new()
+	add_child(fake_desktop)
+	console.desktop = fake_desktop
+	console.show_raw_file()
+	if fake_desktop.windows.size() != 1:
+		failures.append("raw file: no window opened")
+	else:
+		if str(fake_desktop.windows[0]["title"]) != "Fichier local":
+			failures.append("raw file: wrong window title")
+		await get_tree().process_frame
+		var view = fake_desktop.windows[0]["content"]
+		if not view.content.text.contains("cheat_sync_a"):
+			failures.append("raw file: content does not show the local file")
+	fake_desktop.queue_free()
+
+	console.queue_free()
+	sync.queue_free()
+	isolated["mail_manager"].free()
+	isolated["commission_manager"].free()
+	await get_tree().process_frame
+	_remove_file(save_path)
+	_remove_file(cache_path)
+	_remove_file(config_path)
+	_remove_file(feed_path)
+	return failures
+
+
+func _test_wifi_indicator() -> Array[String]:
+	var failures: Array[String] = []
+	var save_path := "user://test_wifi_%d.json" % Time.get_ticks_usec()
+	var config_path := "user://test_wifi_config_%d.json" % Time.get_ticks_usec()
+	var cache_path := "user://test_wifi_cache_%d.json" % Time.get_ticks_usec()
+	var feed_path := "user://test_wifi_feed_%d.json" % Time.get_ticks_usec()
+	_write_json(feed_path, {
+		"version": 1,
+		"commissions": [_payload_definition("wifi_a", "Wifi A")],
+	})
+	var isolated := _make_isolated_managers(save_path)
+	var previous := {
+		"mode": SyncManager.mode,
+		"config_path": SyncManager.config_path,
+		"cache_path": SyncManager.cache_path,
+		"local_path": SyncManager.local_path,
+		"remote_url": SyncManager.remote_url,
+		"interval": SyncManager.sync_interval_minutes,
+		"last_sync_at": SyncManager.last_sync_at,
+		"last_sync_ok": SyncManager.last_sync_ok,
+		"last_sync_mode": SyncManager.last_sync_mode,
+		"commission_manager": SyncManager.commission_manager,
+	}
+	SyncManager.config_path = config_path
+	SyncManager.cache_path = cache_path
+	SyncManager.local_path = feed_path
+	SyncManager.remote_url = ""
+	SyncManager.sync_interval_minutes = 0
+	SyncManager.commission_manager = isolated["commission_manager"]
+	SyncManager.set_mode("local")
+	SyncManager.last_sync_at = 0
+	SyncManager.last_sync_ok = false
+	SyncManager.last_sync_mode = ""
+
+	var desktop = load("res://controllers/desktop/desktop_controller.tscn").instantiate()
+	add_child(desktop)
+	await get_tree().process_frame
+	var indicator: Control = desktop.wifi_indicator
+	if indicator.get_state() != WIFI_INDICATOR_SCRIPT.STATE_LOCAL:
+		failures.append("wifi: local mode is not local")
+
+	SyncManager.last_sync_mode = "remote"
+	SyncManager.last_sync_ok = false
+	desktop._update_wifi_state()
+	if indicator.get_state() != WIFI_INDICATOR_SCRIPT.STATE_LOCAL:
+		failures.append("wifi: a remote failure is still shown after switching to local")
+	SyncManager.last_sync_ok = false
+	SyncManager.last_sync_mode = ""
+
+	indicator.pressed.emit()
+	if SyncManager.mode != "remote":
+		failures.append("wifi: click did not switch to remote")
+	if indicator.get_state() != WIFI_INDICATOR_SCRIPT.STATE_ERROR:
+		failures.append("wifi: remote without url is not an error")
+	if not desktop.notification_panel.visible or not desktop.notification_label.text.contains("Synchronisation impossible"):
+		failures.append("wifi: failed sync did not notify")
+	var saved = JSON.parse_string(FileAccess.get_file_as_string(config_path))
+	if not (saved is Dictionary) or str(saved.get("mode", "")) != "remote":
+		failures.append("wifi: mode not saved in the config")
+
+	SyncManager._finish(true, 0)
+	if indicator.get_state() != WIFI_INDICATOR_SCRIPT.STATE_REMOTE:
+		failures.append("wifi: successful remote sync is not remote")
+	if not SyncManager.get_last_sync_text().contains("succès"):
+		failures.append("wifi: last sync text does not report success")
+
+	SyncManager._finish(false, 0)
+	if indicator.get_state() != WIFI_INDICATOR_SCRIPT.STATE_ERROR:
+		failures.append("wifi: failed sync is not an error")
+
+	indicator.pressed.emit()
+	if SyncManager.mode != "local":
+		failures.append("wifi: click did not switch back to local")
+	if not SyncManager.last_sync_ok:
+		failures.append("wifi: local sync did not succeed")
+	if indicator.get_state() != WIFI_INDICATOR_SCRIPT.STATE_LOCAL:
+		failures.append("wifi: successful local sync is not local")
+
+	desktop.queue_free()
+	await get_tree().process_frame
+	SyncManager.mode = previous["mode"]
+	SyncManager.config_path = previous["config_path"]
+	SyncManager.cache_path = previous["cache_path"]
+	SyncManager.local_path = previous["local_path"]
+	SyncManager.remote_url = previous["remote_url"]
+	SyncManager.sync_interval_minutes = previous["interval"]
+	SyncManager.last_sync_at = previous["last_sync_at"]
+	SyncManager.last_sync_ok = previous["last_sync_ok"]
+	SyncManager.last_sync_mode = previous["last_sync_mode"]
+	SyncManager.commission_manager = previous["commission_manager"]
+	SyncManager.apply_interval(SyncManager.sync_interval_minutes)
+	isolated["mail_manager"].free()
+	isolated["commission_manager"].free()
+	_remove_file(save_path)
+	_remove_file(config_path)
+	_remove_file(cache_path)
+	_remove_file(feed_path)
+	return failures
+
+
+func _make_isolated_managers(save_path: String) -> Dictionary:
+	var mail_manager = load("res://managers/mail_manager.gd").new()
+	mail_manager.save_path = save_path
+	mail_manager.load_state()
+	var commission_manager = load("res://managers/commission_manager.gd").new()
+	commission_manager.save_path = save_path
+	commission_manager.mail_manager = mail_manager
+	commission_manager.load_state()
+	return {"mail_manager": mail_manager, "commission_manager": commission_manager}
+
+
+func _payload_definition(commission_id: String, title: String) -> Dictionary:
+	return {
+		"id": commission_id,
+		"title": title,
+		"type": "affiche",
+		"duration": 60,
+		"client": "Client %s" % commission_id,
+		"sender": "sender@%s.example" % commission_id,
+		"description": "Commande de synchronisation.",
+		"mail_request": "Merci de réaliser %s." % title,
+		"mail_success": "Merci.",
+		"mail_failure": "Trop tard.",
+	}
+
+
+func _write_json(path: String, data: Dictionary) -> void:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(data, "\t"))
+	file.close()
+
+
+func _remove_file(path: String) -> void:
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _count_mails(mails: Array[Dictionary], mail_id: String) -> int:
