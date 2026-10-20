@@ -161,7 +161,13 @@ func _refresh() -> void:
 		return
 	_refreshing = true
 	mail_list.clear()
-	var mails: Array[Dictionary] = mail_manager.get_mails(_show_archives)
+	var mails: Array[Dictionary] = []
+	if _show_archives:
+		for mail in mail_manager.get_mails(true):
+			if bool(mail.get("archived", false)):
+				mails.append(mail)
+	else:
+		mails = mail_manager.get_mails(false)
 	var selected_index := -1
 	for mail in mails:
 		var index := mail_list.add_item(_mail_label(mail))
