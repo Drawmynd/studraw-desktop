@@ -9,8 +9,9 @@ The app does not draw for the player — it motivates them, like a fitness app.
 - **Platform**: Desktop (Windows), mouse + keyboard.
 - **UI language**: French (content and labels).
 - **Drawing**: out of scope. The player draws elsewhere.
-- **Deadlines**: real time, persisted across sessions. Commissions carry a relative
-  duration (`duree_heures`); on accept, `deadline = now + duree_heures * 3600`.
+- **Deadlines**: real time, persisted across sessions. Durations are expressed in minutes and
+  resolved from a `type -> minutes` dictionary unless the commission sets a `duree` override;
+  on accept, `deadline = now + duration_minutes * 60`.
 - **Shared content**: `commissions.json` in a **public** git repo.
   - Client: fetch over HTTPS raw at startup (`raw.githubusercontent.com`), no git needed.
   - Dev: in-game editor writes the JSON into a local clone, then pushes via `git` CLI
@@ -41,8 +42,9 @@ The app does not draw for the player — it motivates them, like a fitness app.
 
     { "version": 3, "updated_at": 1234567890,
       "commissions": [
-        { "id": "uuid", "titre": "...", "client": "...", "description": "...",
-          "duree_heures": 48, "recompense": 120, "difficulte": 3 }
+        { "id": "uuid", "title": "...", "type": "illustration", "duration": null,
+          "description": "...", "mail_request": "...", "mail_success": "...",
+          "mail_failure": "..." }
       ] }
 
 `user://save.json` (player state, never shared):
@@ -93,8 +95,8 @@ Each milestone is one logical change / one commit.
 
 ### M6 — Dev account + editor
 - `AuthManager`: SHA-256 constant, `verify()`, `is_dev_session`.
-- `DevConsoleController`: login, commission form (titre, client, description, duree,
-  recompense, difficulte), writes `data/commissions.json`.
+- `DevConsoleController`: login, commission form (title, type, duration override,
+  description, mail request, mail success, mail failure), writes `data/commissions.json`.
 - Done when: correct password unlocks the editor and a new commission is written to disk.
 
 ### M7 — Dev publish
@@ -113,7 +115,7 @@ Each milestone is one logical change / one commit.
 ## Proposed tests (to validate before writing)
 
 - `AuthManager.verify`: correct password → true, wrong → false.
-- `CommissionManager.accept`: `deadline == accepted_at + duree * 3600`.
+- `CommissionManager.accept`: `deadline == accepted_at + duration_minutes * 60` (override or type default).
 - Expiry → status `failed` + exactly one failure mail.
 - Sync merge: only unknown ids produce a "new commission" mail.
 - `save.json` round-trip: write then read returns identical state.

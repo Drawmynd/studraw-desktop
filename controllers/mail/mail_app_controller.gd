@@ -8,7 +8,12 @@ extends Control
 @onready var from_label: Label = %FromLabel
 @onready var subject_label: Label = %SubjectLabel
 @onready var body_label: RichTextLabel = %BodyLabel
+@onready var accept_button: Button = %AcceptButton
+@onready var refuse_button: Button = %RefuseButton
 @onready var archive_button: Button = %ArchiveButton
+
+var mail_manager: Node
+var commission_manager: Node
 
 var _show_archives: bool = false
 var _selected_id: String = ""
@@ -16,12 +21,18 @@ var _refreshing: bool = false
 
 
 func _ready() -> void:
+	if mail_manager == null:
+		mail_manager = MailManager
+	if commission_manager == null:
+		commission_manager = get_node_or_null("/root/CommissionManager")
 	_apply_palette()
 	archive_toggle.toggled.connect(_on_archive_toggled)
+	accept_button.pressed.connect(accept_selected)
+	refuse_button.pressed.connect(refuse_selected)
 	archive_button.pressed.connect(_on_archive_pressed)
 	mail_list.item_selected.connect(_on_item_selected)
-	MailManager.ensure_welcome_mail()
-	MailManager.mails_changed.connect(_refresh)
+	mail_manager.ensure_welcome_mail()
+	mail_manager.mails_changed.connect(_refresh)
 	_refresh()
 
 
@@ -40,7 +51,23 @@ func _apply_palette() -> void:
 	mail_list.add_theme_color_override("font_color", Palette.MAIL_TEXT)
 	mail_list.add_theme_color_override("font_selected_color", Palette.MAIL_HEADER_TEXT)
 	_style_button(archive_toggle)
+	_style_button(accept_button)
+	_style_button(refuse_button)
 	_style_button(archive_button)
+	_style_colored_button(
+		accept_button,
+		Palette.COMMISSION_ACCEPT_BACKGROUND,
+		Palette.COMMISSION_ACCEPT_BACKGROUND_HOVER,
+		Palette.COMMISSION_ACCEPT_BACKGROUND_PRESSED,
+		Palette.COMMISSION_ACCEPT_TEXT
+	)
+	_style_colored_button(
+		refuse_button,
+		Palette.COMMISSION_REFUSE_BACKGROUND,
+		Palette.COMMISSION_REFUSE_BACKGROUND_HOVER,
+		Palette.COMMISSION_REFUSE_BACKGROUND_PRESSED,
+		Palette.COMMISSION_REFUSE_TEXT
+	)
 	_style_delete_button(archive_button)
 
 
@@ -101,6 +128,23 @@ func _style_delete_button(button: Button) -> void:
 	)
 
 
+func _style_colored_button(
+	button: Button,
+	normal_color: Color,
+	hover_color: Color,
+	pressed_color: Color,
+	text_color: Color
+) -> void:
+	button.add_theme_color_override("font_color", text_color)
+	button.add_theme_color_override("font_hover_color", text_color)
+	button.add_theme_color_override("font_pressed_color", text_color)
+	button.add_theme_color_override("font_focus_color", text_color)
+	button.add_theme_stylebox_override("normal", _make_button_style(normal_color))
+	button.add_theme_stylebox_override("hover", _make_button_style(hover_color))
+	button.add_theme_stylebox_override("pressed", _make_button_style(pressed_color))
+	button.add_theme_stylebox_override("focus", _make_button_style(normal_color))
+
+
 func _make_button_style(background_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background_color
@@ -117,7 +161,7 @@ func _refresh() -> void:
 		return
 	_refreshing = true
 	mail_list.clear()
-	var mails: Array[Dictionary] = MailManager.get_mails(_show_archives)
+	var mails: Array[Dictionary] = mail_manager.get_mails(_show_archives)
 	var selected_index := -1
 	for mail in mails:
 		var index := mail_list.add_item(_mail_label(mail))
@@ -144,17 +188,51 @@ func _mail_label(mail: Dictionary) -> String:
 
 
 func _on_item_selected(index: int) -> void:
-	_selected_id = str(mail_list.get_item_metadata(index))
+	select_mail(str(mail_list.get_item_metadata(index)))
+
+
+func select_mail(id: String) -> void:
+	_selected_id = id
 	_refreshing = true
-	MailManager.mark_read(_selected_id)
+	mail_manager.mark_read(_selected_id)
 	_refreshing = false
+	_refresh()
+
+
+func accept_selected() -> void:
+	if _selected_id == "" or commission_manager == null:
+		return
+	var mail: Dictionary = mail_manager.get_mail(_selected_id)
+	if str(mail.get("type", "")) != "commission_offer":
+		return
+	var commission = mail.get("commission", {})
+	if not (commission is Dictionary) or commission.is_empty():
+		return
+	commission_manager.accept(commission)
+	mail_manager.archive_mail(_selected_id)
+	_selected_id = ""
+	_refresh()
+
+
+func refuse_selected() -> void:
+	if _selected_id == "" or commission_manager == null:
+		return
+	var mail: Dictionary = mail_manager.get_mail(_selected_id)
+	if str(mail.get("type", "")) != "commission_offer":
+		return
+	var commission = mail.get("commission", {})
+	if not (commission is Dictionary) or commission.is_empty():
+		return
+	commission_manager.refuse(str(commission.get("id", "")))
+	mail_manager.archive_mail(_selected_id)
+	_selected_id = ""
 	_refresh()
 
 
 func _on_archive_pressed() -> void:
 	if _selected_id == "":
 		return
-	MailManager.archive_mail(_selected_id)
+	mail_manager.archive_mail(_selected_id)
 	_selected_id = ""
 	_refresh()
 
@@ -170,6 +248,21 @@ func _update_actions() -> void:
 	archive_toggle.text = "Boîte de réception" if _show_archives else "Archives"
 	archive_button.visible = not _show_archives
 	archive_button.disabled = _selected_id == ""
+	var open_offer := _selected_open_offer()
+	accept_button.visible = open_offer
+	refuse_button.visible = open_offer
+
+
+func _selected_open_offer() -> bool:
+	if _selected_id == "" or _show_archives or commission_manager == null:
+		return false
+	var mail: Dictionary = mail_manager.get_mail(_selected_id)
+	if str(mail.get("type", "")) != "commission_offer" or bool(mail.get("archived", false)):
+		return false
+	var commission = mail.get("commission", {})
+	if not (commission is Dictionary) or commission.is_empty():
+		return false
+	return not commission_manager.has_open_offer(commission)
 
 
 func _show_empty() -> void:
@@ -179,7 +272,7 @@ func _show_empty() -> void:
 
 
 func _show_mail(id: String) -> void:
-	var mail := MailManager.get_mail(id)
+	var mail: Dictionary = mail_manager.get_mail(id)
 	if mail.is_empty():
 		_show_empty()
 		return

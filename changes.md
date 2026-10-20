@@ -186,3 +186,113 @@ Out of scope (deliberate): network sync (M5), commissions (M4), restoring from t
 permanent deletion, search, folders, attachments, and a desktop unread badge.
 
 Invalidated docs pages: none.
+
+## 2026-10-20 — M4 commission lifecycle
+
+Added `managers/commission_manager.gd` (autoload `CommissionManager`): accept, refuse and
+complete a commission, compute `deadline = accepted_at + duration_minutes * 60`, track
+`active|success|failed`, and persist `commissions` plus `refused` in `user://save.json` while
+preserving the `mails` key owned by `MailManager`. Reminder mails (H-24, H-1) and the failure
+mail use deterministic ids and per-commission flags, so each is emitted once.
+
+`ClockManager` now also emits `minute_tick` from a separate 60-second accumulator and exposes
+`get_unix_time()`. `CommissionManager` checks deadlines on every minute tick; the desktop shows
+a non-modal notification for reminders and failures in addition to the mail.
+
+Mail objects gained optional `type` and `commission` fields. `MailAppController` renders
+Accepter / Refuser buttons for `commission_offer` mails; accepting transfers the commission into
+`CommissionManager` and the running countdown list, then archives the mail. The desktop gained a
+"Commandes" button and `controllers/commissions/commissions_app_controller.gd` + `.tscn`, which
+lists active commissions and refreshes their remaining time every second.
+
+A single demo commission offer is seeded on a fresh install (desktop startup) so M4 is usable
+before sync lands; it is replaced by real offers in M5.
+
+Files touched: `managers/clock_manager.gd`, `managers/commission_manager.gd`,
+`managers/mail_manager.gd`, `managers/palette.gd`, `controllers/mail/mail_app_controller.gd`,
+`controllers/mail/mail_app_controller.tscn`,
+`controllers/commissions/commissions_app_controller.gd`,
+`controllers/commissions/commissions_app_controller.tscn`,
+`controllers/desktop/desktop_controller.gd`, `controllers/desktop/desktop_controller.tscn`,
+`project.godot`, `tests/test_scene.gd`, `changes.md`.
+
+Tests: added `T-COM` covering the commissions list app, the mail-to-list transfer, acceptance and
+deadline computation, and the H-24 / H-1 reminders driven by `ClockManager.minute_tick`, including
+the no-duplicate guarantee. 6 tests, 0 failure.
+
+Why: M4 turns the local mail loop into a timed commission lifecycle and makes the countdown,
+acceptance and refusal visible to the player.
+
+Out of scope (deliberate): network sync (M5), dev editor (M6), git publish (M7), restoring from
+the archive, search, desktop unread badge.
+
+Invalidated docs pages: none.
+
+## 2026-10-20 — Commission duration by type
+
+Commission definitions now follow `{id, title, type, duration, description, mail_request,
+mail_success, mail_failure}`. `duration` is an optional override in minutes; when null,
+`CommissionManager.TYPE_DURATIONS_MINUTES` resolves the duration from the commission type. Deadlines are
+computed as `accepted_at + duration_minutes * 60`, and the persisted state keeps the resolved
+`duration_minutes` alongside the original override.
+
+The demo offer, the commissions list (type + resolved duration) and `T-COM` were updated. The
+`ROADMAP.md` data model and M6 form fields follow the same shape. Success and failure mails now
+use `mail_success` and `mail_failure`, with a generated fallback when empty; offer mails use
+`mail_request` as their body.
+
+Files touched: `managers/commission_manager.gd`,
+`controllers/commissions/commissions_app_controller.gd`, `tests/test_scene.gd`, `ROADMAP.md`,
+`changes.md`.
+
+Why: commissions are now authored as reusable types with a per-commission duration override,
+which keeps the shared data small and the mail copy in the commission itself.
+
+Out of scope (deliberate): remote `type -> minutes` overrides (M5 sync), dev form (M6).
+
+Invalidated docs pages: none.
+
+## 2026-10-20 — English commission identifiers
+
+Renamed the internal commission and state fields to English: `title`, `duration`,
+`duration_minutes`, `status`, `mail_request`, `mail_success`, `mail_failure`, and
+`TYPE_DURATIONS_MINUTES`. Removed the French-key fallbacks. Test failure messages were translated
+to English as well.
+
+UI labels, mail subjects / bodies and demo content remain French, which is the app's chosen UI
+language. No data migration is provided for the short-lived French-key saves.
+
+Files touched: `managers/commission_manager.gd`,
+`controllers/commissions/commissions_app_controller.gd`, `tests/test_scene.gd`, `ROADMAP.md`,
+`changes.md`.
+
+Why: keep the codebase identifiers and developer-facing messages in English while preserving the
+French product language.
+
+Out of scope (deliberate): translating UI copy or shared commission content.
+
+Invalidated docs pages: none.
+
+## 2026-10-20 — Dev console cheat buttons
+
+Replaced the "Console dev" placeholder with `controllers/dev/dev_console_controller.gd` + `.tscn`.
+It offers a clean test-state reset, a new offer mail, and notification / mail cheats for the 24 h
+reminder, 1 h reminder, failure and success. The reset clears mail and commission state, reseeds
+the welcome mail and demo offer, then creates three active fixture commissions covering the
+default and overridden duration paths.
+
+Added `MailManager.clear_all()` and `CommissionManager.clear_all()`. `ensure_welcome_mail()` now
+checks for the welcome mail id instead of the save file's existence, so a reset can reseed it.
+The desktop also listens to `commission_completed` and shows a success notification.
+
+Files touched: `managers/mail_manager.gd`, `managers/commission_manager.gd`,
+`controllers/dev/dev_console_controller.gd`, `controllers/dev/dev_console_controller.tscn`,
+`controllers/desktop/desktop_controller.gd`, `changes.md`.
+
+Why: exercise notifications, mails and commission flows quickly without waiting for real
+deadlines or hand-editing `user://save.json`.
+
+Out of scope (deliberate): a persistent debug menu, time travel for the clock, automated UI tests
+for the dev console.
+
+Invalidated docs pages: none.

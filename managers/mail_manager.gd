@@ -30,7 +30,7 @@ func load_state() -> void:
 
 
 func ensure_welcome_mail() -> void:
-	if not _mails.is_empty() or FileAccess.file_exists(save_path):
+	if not get_mail("bienvenue").is_empty():
 		return
 	_mails.append({
 		"id": "bienvenue",
@@ -41,6 +41,12 @@ func ensure_welcome_mail() -> void:
 		"read": false,
 		"archived": false,
 	})
+	save_state()
+	mails_changed.emit()
+
+
+func clear_all() -> void:
+	_mails.clear()
 	save_state()
 	mails_changed.emit()
 
@@ -120,6 +126,9 @@ func save_state() -> void:
 
 
 func _normalize_mail(entry: Dictionary) -> Dictionary:
+	var commission: Dictionary = {}
+	if entry.get("commission") is Dictionary:
+		commission = entry["commission"].duplicate(true)
 	return {
 		"id": str(entry.get("id", "")),
 		"from": str(entry.get("from", "")),
@@ -128,6 +137,8 @@ func _normalize_mail(entry: Dictionary) -> Dictionary:
 		"received_at": int(entry.get("received_at", 0)),
 		"read": bool(entry.get("read", false)),
 		"archived": bool(entry.get("archived", false)),
+		"type": str(entry.get("type", "info")),
+		"commission": commission,
 	}
 
 

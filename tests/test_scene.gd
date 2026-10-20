@@ -11,6 +11,7 @@ func _run() -> void:
 	results["T-WIN"] = await _test_window_component()
 	results["T-DSK"] = await _test_desktop_controller()
 	results["T-MAIL"] = _test_mail_manager()
+	results["T-COM"] = await _test_commission_manager()
 	results["T-PAL"] = _test_palette()
 	var failure_count := 0
 	for test_name in results:
@@ -22,7 +23,7 @@ func _run() -> void:
 		print("FAIL  %s" % test_name)
 		for failure in failures:
 			print("      %s" % failure)
-	print("%d test(s), %d échec(s)" % [results.size(), failure_count])
+	print("%d test(s), %d failure(s)" % [results.size(), failure_count])
 	get_tree().quit(1 if failure_count > 0 else 0)
 
 
@@ -35,12 +36,12 @@ func _test_clock_manager() -> Array[String]:
 	clock._process(0.9)
 	clock._process(1.2)
 	if counter["ticks"] != 3:
-		failures.append("ticks attendus: 3, obtenus: %d" % counter["ticks"])
+		failures.append("expected ticks: 3, got: %d" % counter["ticks"])
 	var value: String = clock.get_time_string()
 	var pattern := RegEx.new()
 	pattern.compile("^\\d{2}:\\d{2}:\\d{2}$")
 	if pattern.search(value) == null:
-		failures.append("format attendu HH:MM:SS, obtenu: %s" % value)
+		failures.append("expected format HH:MM:SS, got: %s" % value)
 	clock.free()
 	return failures
 
@@ -59,7 +60,7 @@ func _test_window_component() -> Array[String]:
 	_push_button(title_point, true)
 	_push_motion(drag_target)
 	_push_button(drag_target, false)
-	_compare_rect(failures, "déplacement", window.get_global_rect(), Rect2(224, 211, 560, 380))
+	_compare_rect(failures, "drag", window.get_global_rect(), Rect2(224, 211, 560, 380))
 	_compare_bottom(failures, window, usable_height)
 
 	var corner: Vector2 = window.global_position + window.size - Vector2(6, 6)
@@ -67,19 +68,19 @@ func _test_window_component() -> Array[String]:
 	_push_button(corner, true)
 	_push_motion(resize_target)
 	_push_button(resize_target, false)
-	_compare_rect(failures, "redimensionnement", window.get_global_rect(), Rect2(224, 211, 660, 430))
+	_compare_rect(failures, "resize", window.get_global_rect(), Rect2(224, 211, 660, 430))
 	_compare_bottom(failures, window, usable_height)
 
 	var restored_rect: Rect2 = window.get_global_rect()
 	window.maximize()
 	_compare_rect(
 		failures,
-		"maximisation",
+		"maximize",
 		window.get_global_rect(),
 		Rect2(Vector2.ZERO, Vector2(get_viewport().get_visible_rect().size.x, usable_height))
 	)
 	window.restore_from_maximize()
-	_compare_rect(failures, "restauration après maximisation", window.get_global_rect(), restored_rect)
+	_compare_rect(failures, "restore after maximize", window.get_global_rect(), restored_rect)
 
 	corner = window.global_position + window.size - Vector2(6, 6)
 	var shrink_target: Vector2 = corner - Vector2(1000, 1000)
@@ -88,17 +89,17 @@ func _test_window_component() -> Array[String]:
 	_push_button(shrink_target, false)
 	_compare_rect(
 		failures,
-		"taille minimale",
+		"minimum size",
 		window.get_global_rect(),
 		Rect2(224, 211, window.minimum_window_size.x, window.minimum_window_size.y)
 	)
 
 	window.minimize()
 	if window.is_visible_in_tree():
-		failures.append("réduction: fenêtre encore visible")
+		failures.append("minimize: window still visible")
 	window.restore()
 	if not window.is_visible_in_tree():
-		failures.append("restauration après réduction: fenêtre invisible")
+		failures.append("restore after minimize: window invisible")
 
 	var closed_count := {"value": 0}
 	window.closed.connect(func(_closed_window: WindowComponent) -> void: closed_count["value"] += 1)
@@ -106,10 +107,10 @@ func _test_window_component() -> Array[String]:
 	_push_button(close_point, true)
 	_push_button(close_point, false)
 	if closed_count["value"] != 1:
-		failures.append("fermeture: signal closed émis %d fois" % closed_count["value"])
+		failures.append("close: closed signal emitted %d times" % closed_count["value"])
 	await get_tree().process_frame
 	if is_instance_valid(window):
-		failures.append("fermeture: fenêtre non libérée")
+		failures.append("close: window not freed")
 	return failures
 
 
@@ -124,44 +125,44 @@ func _test_desktop_controller() -> Array[String]:
 	await get_tree().process_frame
 
 	if desktop.window_list.get_child_count() != 2:
-		failures.append("barre des tâches: 2 boutons attendus, obtenus %d" % desktop.window_list.get_child_count())
+		failures.append("taskbar: expected 2 buttons, got %d" % desktop.window_list.get_child_count())
 	else:
 		var first_button: Button = desktop.window_list.get_child(0)
 		var second_button: Button = desktop.window_list.get_child(1)
 		if first_button.text != "A" or second_button.text != "B":
-			failures.append("barre des tâches: titres %s / %s" % [first_button.text, second_button.text])
+			failures.append("taskbar: titles %s / %s" % [first_button.text, second_button.text])
 
 	if _topmost(desktop) != second:
-		failures.append("ouverture: la dernière fenêtre n'est pas au premier plan")
+		failures.append("open: last window is not topmost")
 
 	_push_button(Vector2(110, 85), true)
 	_push_button(Vector2(110, 85), false)
 	if _topmost(desktop) != first:
-		failures.append("clic sur fenêtre arrière: focus non pris")
+		failures.append("click back window: focus not taken")
 
 	_push_button(Vector2(300, 300), true)
 	_push_button(Vector2(300, 300), false)
 	if _topmost(desktop) != first:
-		failures.append("clic sur recouvrement: la fenêtre du dessous a pris le focus")
+		failures.append("click overlap: underlying window took focus")
 
 	_push_button(Vector2(668, 464), true)
 	_push_button(Vector2(668, 464), false)
 	if _topmost(desktop) != second:
-		failures.append("clic sur fenêtre avant: focus non pris")
+		failures.append("click front window: focus not taken")
 
 	first.minimize()
 	await get_tree().process_frame
 	var minimized_button: Button = desktop.window_list.get_child(0)
 	if not is_equal_approx(minimized_button.modulate.a, Palette.TASKBAR_BUTTON_MINIMIZED_ALPHA):
-		failures.append("réduction: bouton non estompé (alpha %f)" % minimized_button.modulate.a)
+		failures.append("minimize: button not dimmed (alpha %f)" % minimized_button.modulate.a)
 	_push_button(minimized_button.get_global_rect().get_center(), true)
 	_push_button(minimized_button.get_global_rect().get_center(), false)
 	if not first.is_visible_in_tree():
-		failures.append("clic sur bouton réduit: fenêtre non restaurée")
+		failures.append("click minimized button: window not restored")
 	if _topmost(desktop) != first:
-		failures.append("clic sur bouton réduit: fenêtre non focalisée")
+		failures.append("click minimized button: window not focused")
 	if not is_equal_approx(minimized_button.modulate.a, 1.0):
-		failures.append("restauration: bouton toujours estompé (alpha %f)" % minimized_button.modulate.a)
+		failures.append("restore: button still dimmed (alpha %f)" % minimized_button.modulate.a)
 
 	var closed_count := {"value": 0}
 	first.closed.connect(func(_closed_window: WindowComponent) -> void: closed_count["value"] += 1)
@@ -170,17 +171,17 @@ func _test_desktop_controller() -> Array[String]:
 	_push_button(close_point, false)
 	await get_tree().process_frame
 	if closed_count["value"] != 1:
-		failures.append("fermeture: signal closed émis %d fois" % closed_count["value"])
+		failures.append("close: closed signal emitted %d times" % closed_count["value"])
 	if desktop.window_list.get_child_count() != 1:
-		failures.append("fermeture: bouton de tâche restant %d" % desktop.window_list.get_child_count())
+		failures.append("close: task button remaining %d" % desktop.window_list.get_child_count())
 	if is_instance_valid(minimized_button):
-		failures.append("fermeture: bouton de tâche non libéré")
+		failures.append("close: task button not freed")
 
 	var remaining_button: Button = desktop.window_list.get_child(0)
 	_push_button(remaining_button.get_global_rect().get_center(), true)
 	_push_button(remaining_button.get_global_rect().get_center(), false)
 	if _topmost(desktop) != second or not second.is_visible_in_tree():
-		failures.append("après fermeture: fenêtre restante inutilisable")
+		failures.append("after close: remaining window unusable")
 
 	desktop.queue_free()
 	await get_tree().process_frame
@@ -197,23 +198,23 @@ func _test_mail_manager() -> Array[String]:
 	manager.load_state()
 	manager.ensure_welcome_mail()
 	if manager.get_mails().size() != 1:
-		failures.append("amorce: 1 mail attendu, obtenu %d" % manager.get_mails().size())
+		failures.append("seed: expected 1 mail, got %d" % manager.get_mails().size())
 	manager.ensure_welcome_mail()
 	if manager.get_mails().size() != 1:
-		failures.append("amorce: mail dupliqué")
+		failures.append("seed: duplicated mail")
 	var welcome_id: String = str(manager.get_mails()[0]["id"])
 	var copy: Array[Dictionary] = manager.get_mails()
 	copy[0]["read"] = true
 	if bool(manager.get_mail(welcome_id)["read"]):
-		failures.append("get_mails: la copie modifie l'état interne")
+		failures.append("get_mails: copy mutates internal state")
 	manager.mark_read(welcome_id)
 	if not bool(manager.get_mail(welcome_id)["read"]):
-		failures.append("marquage lu: état non mis à jour")
+		failures.append("mark read: state not updated")
 	var reloaded = load("res://managers/mail_manager.gd").new()
 	reloaded.save_path = save_path
 	reloaded.load_state()
 	if reloaded.get_mails().is_empty() or not bool(reloaded.get_mail(welcome_id)["read"]):
-		failures.append("persistance: état lu non rechargé")
+		failures.append("persistence: read state not reloaded")
 	manager.add_mail({
 		"id": "autre",
 		"from": "Client",
@@ -222,31 +223,163 @@ func _test_mail_manager() -> Array[String]:
 		"received_at": 1,
 	})
 	if manager.get_mails().size() != 2:
-		failures.append("ajout: 2 mails attendus, obtenu %d" % manager.get_mails().size())
+		failures.append("add: expected 2 mails, got %d" % manager.get_mails().size())
 	manager.archive_mail("autre")
 	if manager.get_mails().size() != 1:
 		failures.append(
-			"archivage: 1 mail en boîte de réception attendu, obtenu %d"
+			"archive: expected 1 inbox mail, got %d"
 			% manager.get_mails().size()
 		)
 	if manager.get_mails(true).size() != 2:
 		failures.append(
-			"archivage: 2 mails au total attendus, obtenu %d" % manager.get_mails(true).size()
+			"archive: expected 2 total mails, got %d" % manager.get_mails(true).size()
 		)
 	if not bool(manager.get_mail("autre")["archived"]):
-		failures.append("archivage: indicateur archived non positionné")
+		failures.append("archive: archived flag not set")
 	var reloaded_archive = load("res://managers/mail_manager.gd").new()
 	reloaded_archive.save_path = save_path
 	reloaded_archive.load_state()
 	if reloaded_archive.get_mails().size() != 1 or reloaded_archive.get_mails(true).size() != 2:
-		failures.append("persistance: archivage non rechargé")
+		failures.append("persistence: archive not reloaded")
 	if signal_count["value"] != 4:
-		failures.append("signal mails_changed: 4 émissions attendues, obtenu %d" % signal_count["value"])
+		failures.append("mails_changed signal: expected 4 emissions, got %d" % signal_count["value"])
 	manager.free()
 	reloaded.free()
 	reloaded_archive.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
 	return failures
+
+
+func _test_commission_manager() -> Array[String]:
+	var failures: Array[String] = []
+	var save_path := "user://test_commission_%d.json" % Time.get_ticks_usec()
+	var mail_manager = load("res://managers/mail_manager.gd").new()
+	mail_manager.save_path = save_path
+	mail_manager.load_state()
+	var commission := {
+		"id": "offre_test",
+		"title": "Test poster",
+		"type": "illustration",
+		"duration": null,
+		"description": "A poster used to verify the commission lifecycle.",
+		"mail_request": "Please produce this poster.",
+		"mail_success": "Thank you, the poster is complete.",
+		"mail_failure": "The poster deadline has passed.",
+	}
+	mail_manager.add_mail({
+		"id": "offre_test_mail",
+		"from": "Studio Studraw",
+		"subject": "New commission: Test poster",
+		"body": "Please produce this poster.",
+		"received_at": 1,
+		"type": "commission_offer",
+		"commission": commission,
+	})
+	var clock = load("res://managers/clock_manager.gd").new()
+	var manager = load("res://managers/commission_manager.gd").new()
+	manager.save_path = save_path
+	manager.mail_manager = mail_manager
+	manager.clock_manager = clock
+	add_child(manager)
+	await get_tree().process_frame
+
+	var commissions_app = load(
+		"res://controllers/commissions/commissions_app_controller.tscn"
+	).instantiate()
+	commissions_app.commission_manager = manager
+	commissions_app.clock_manager = clock
+	add_child(commissions_app)
+	await get_tree().process_frame
+	if commissions_app.commission_list.get_child_count() != 0:
+		failures.append(
+			"commissions app: list not empty on open (%d)"
+			% commissions_app.commission_list.get_child_count()
+		)
+
+	var mail_app = load("res://controllers/mail/mail_app_controller.tscn").instantiate()
+	mail_app.mail_manager = mail_manager
+	mail_app.commission_manager = manager
+	add_child(mail_app)
+	await get_tree().process_frame
+	mail_app.select_mail("offre_test_mail")
+	if not mail_app.accept_button.visible:
+		failures.append("commission offer mail: accept button hidden")
+	mail_app.accept_selected()
+	await get_tree().process_frame
+
+	var state: Dictionary = manager.get_commission("offre_test")
+	if state.is_empty() or str(state.get("status", "")) != "active":
+		failures.append("accept: commission is not active")
+	else:
+		var expected_deadline := int(state["accepted_at"]) + int(
+			manager.TYPE_DURATIONS_MINUTES["illustration"]
+		) * 60
+		if int(state["deadline"]) != expected_deadline:
+			failures.append(
+				"accept: expected deadline %d, got %d"
+				% [expected_deadline, int(state["deadline"])]
+			)
+	if not bool(mail_manager.get_mail("offre_test_mail").get("archived", false)):
+		failures.append("accept: offer mail not archived")
+	if commissions_app.commission_list.get_child_count() != 1:
+		failures.append(
+			"mail-to-list transfer: expected 1 commission, got %d"
+			% commissions_app.commission_list.get_child_count()
+		)
+
+	var reminders: Array[String] = []
+	manager.commission_reminder.connect(
+		func(commission_id: String, hours_remaining: int) -> void:
+			reminders.append("%s:%d" % [commission_id, hours_remaining])
+	)
+	var now := int(Time.get_unix_time_from_system())
+	manager.accept({
+		"id": "rappel_24",
+		"title": "Reminder 24",
+		"type": "affiche",
+		"duration": 2880,
+		"mail_success": "",
+		"mail_failure": "",
+	}, now - 24 * 3600 - 5)
+	manager.accept({
+		"id": "rappel_1",
+		"title": "Reminder 1",
+		"type": "affiche",
+		"duration": 2880,
+		"mail_success": "",
+		"mail_failure": "",
+	}, now - 47 * 3600 - 5)
+	clock._process(60.0)
+	if mail_manager.get_mail("rappel_24_rappel_24").is_empty():
+		failures.append("24h reminder: mail missing")
+	if mail_manager.get_mail("rappel_1_rappel_1").is_empty():
+		failures.append("1h reminder: mail missing")
+	if reminders.size() != 2:
+		failures.append("reminders: expected 2 emissions, got %d" % reminders.size())
+	clock._process(60.0)
+	if _count_mails(mail_manager.get_mails(true), "rappel_24_rappel_24") != 1:
+		failures.append("24h reminder: duplicate mail")
+	if _count_mails(mail_manager.get_mails(true), "rappel_1_rappel_1") != 1:
+		failures.append("1h reminder: duplicate mail")
+	if reminders.size() != 2:
+		failures.append("reminders: duplicate emissions (%d)" % reminders.size())
+
+	mail_app.queue_free()
+	commissions_app.queue_free()
+	manager.queue_free()
+	mail_manager.free()
+	clock.free()
+	await get_tree().process_frame
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+	return failures
+
+
+func _count_mails(mails: Array[Dictionary], mail_id: String) -> int:
+	var count := 0
+	for mail in mails:
+		if str(mail["id"]) == mail_id:
+			count += 1
+	return count
 
 
 func _test_palette() -> Array[String]:
@@ -257,7 +390,7 @@ func _test_palette() -> Array[String]:
 		if path == "res://managers/palette.gd":
 			continue
 		if FileAccess.get_file_as_string(path).contains("Color("):
-			failures.append("%s contient une couleur littérale" % path)
+			failures.append("%s contains a literal color" % path)
 	return failures
 
 
@@ -293,13 +426,13 @@ func _compare_rect(
 ) -> void:
 	if actual.position.is_equal_approx(expected.position) and actual.size.is_equal_approx(expected.size):
 		return
-	failures.append("%s: attendu %s, obtenu %s" % [label, expected, actual])
+	failures.append("%s: expected %s, got %s" % [label, expected, actual])
 
 
 func _compare_bottom(failures: Array[String], window: WindowComponent, usable_height: float) -> void:
 	if window.global_position.y + window.size.y <= usable_height + 0.5:
 		return
-	failures.append("recouvrement de la barre des tâches: bas à %f, limite %f" % [
+	failures.append("taskbar overlap: bottom at %f, limit %f" % [
 		window.global_position.y + window.size.y, usable_height
 	])
 
