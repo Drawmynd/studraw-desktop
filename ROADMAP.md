@@ -10,7 +10,7 @@ The app does not draw for the player — it motivates them, like a fitness app.
 - **UI language**: French (content and labels).
 - **Drawing**: out of scope. The player draws elsewhere.
 - **Deadlines**: real time, persisted across sessions. Durations are expressed in minutes and
-  resolved from a `type -> minutes` dictionary unless the commission sets a `duree` override;
+  resolved from a `type -> minutes` dictionary unless the commission sets a `duration` override;
   on accept, `deadline = now + duration_minutes * 60`.
 - **Shared content**: `commissions.json` in a **public** git repo.
   - Client: fetch over HTTPS raw (`raw.githubusercontent.com`), no git needed.
@@ -18,7 +18,9 @@ The app does not draw for the player — it motivates them, like a fitness app.
     (`OS.execute`), using the machine's credential manager.
   - Source configured in `user://sync_config.json`: `mode` (`local` | `remote`), `local_path`,
     `remote_url`, `sync_interval_minutes` (0 disables periodic sync). Default: local
-    `res://data/commissions.json`, so the app works before the public repo exists.
+    `res://data/commissions.json`, so the app works before the public repo exists; the default
+    remote address is
+    `https://raw.githubusercontent.com/Drawmynd/studraw-desktop/main/data/commissions.json`.
   - Merge by commission id: unknown ids become offers, already seen ids never duplicate.
     A higher `version` refreshes offers that are still pending; accepted, refused and archived
     ones are left untouched. Last good payload is cached in `user://commissions_cache.json`.
@@ -52,16 +54,18 @@ The app does not draw for the player — it motivates them, like a fitness app.
 
 `data/commissions.json` (shared, written by dev, read by all):
 
-    { "version": 3, "updated_at": 1234567890,
+    { "version": 6, "updated_at": 1234567890,
+      "clients": [ { "id": "cli-001", "name": "...", "email": "..." } ],
+      "types": [ { "id": "typ-001", "name": "illustration", "duration_minutes": 2880 } ],
       "commissions": [
-        { "id": "uuid", "title": "...", "type": "illustration", "duration": null,
-          "client": "...", "sender": "...",
+        { "id": "comm-2026-001", "title": "...", "type": "illustration", "type_id": "typ-001",
+          "duration": null, "client": "...", "client_id": "cli-001", "sender": "...",
           "description": "...", "mail_request": "...", "mail_success": "...",
           "mail_failure": "..." }
       ] }
 
-`client` is the human or company commissioning the work; `sender` is the mail sender and may
-differ from the client (e.g. `prenom@entreprise.fr`). Mails carry a `sender` field.
+`client` / `sender` / `type` / `duration` are denormalised so receivers never need the `clients`
+and `types` lists; `client_id` / `type_id` only serve the source editor.
 
 `user://profiles/<id>/save.json` (player state, one file per profile, never shared):
 
@@ -197,6 +201,16 @@ No per-behaviour splits.
 - Dragging the window away from the edge restores its previous size and position.
 - The taskbar and the desktop keep their current behaviour; the window minimum size still applies.
 - Out of scope: quarter-screen corners, keyboard shortcuts, multi-monitor edge rules.
+
+### M11 — Resizable application window (documented, not scheduled)
+- The application window itself (the OS window hosting the whole project, not a `WindowComponent`)
+  can be resized freely by the player, like any desktop application.
+- The desktop, taskbar, notifications and open windows adapt to the new size; existing windows are
+  clamped back into the work area and the taskbar stays anchored to the bottom.
+- A minimum application size keeps every app usable, and the viewport keeps its current
+  `canvas_items` / `expand` stretch behaviour.
+- Out of scope: fullscreen or borderless toggles, per-monitor DPI rules, remembering the window
+  size and position across launches.
 
 ## Risks
 
