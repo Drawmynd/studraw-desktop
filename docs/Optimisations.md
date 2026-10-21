@@ -31,13 +31,6 @@ including the existing preservation of keys owned by another manager.
 
 ## P2
 
-### EXT — editable palette resource
-
-Turn the palette into a `PaletteData` resource (`@export` colours, `res://theme/palette.tres`)
-injected into controllers and components, so colours can be tuned from the editor without
-touching code. Keep the autoload as a loading facade or remove it once every consumer is
-injected. Documented as a design note; deferred.
-
 ### OPT — avoid redundant cache reads
 
 `apply_payload()` reloads and re-parses the cache on every payload, even when the caller already

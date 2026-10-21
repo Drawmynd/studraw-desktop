@@ -112,8 +112,8 @@
 
 ## Not implemented yet
 
-Window snapping to half screen (M10), free resizing behaviour of the application window itself
-(M11), commission delivery with an image and the gallery (M9), and the unread badge plus one
+Window snapping to half screen and free resizing of the application window itself (M10),
+commission delivery with an image and the gallery (M9), and the unread badge plus one
 notification per mail kind (M8).
 
 ## Deliberately excluded

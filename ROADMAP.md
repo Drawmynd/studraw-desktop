@@ -18,8 +18,7 @@ The app does not draw for the player — it motivates them, like a fitness app.
     (`OS.execute`), using the machine's credential manager.
   - Source configured in `user://sync_config.json`: `mode` (`local` | `remote`), `local_path`,
     `remote_url`, `sync_interval_minutes` (0 disables periodic sync). Default: local
-    `res://data/commissions.json`, so the app works before the public repo exists; the default
-    remote address is
+    `res://data/commissions.json`; the distant default is
     `https://raw.githubusercontent.com/Drawmynd/studraw-desktop/main/data/commissions.json`.
   - Merge by commission id: unknown ids become offers, already seen ids never duplicate.
     A higher `version` refreshes offers that are still pending; accepted, refused and archived
@@ -31,18 +30,17 @@ The app does not draw for the player — it motivates them, like a fitness app.
 
 ## Out of scope
 
-- Drawing canvas, layers, export.
+- Drawing canvas, layers, artwork export.
 - Multiplayer, online player accounts, server backend.
-- Web deployment.
+- Web or mobile deployment.
+- Prices, payments, negotiation, economy.
+- Localisation beyond French.
 
-## Prerequisites (user side)
+## Working machine
 
-- `git init` + initial commit in the project.
-- A **public** GitHub repo + its raw URL for `data/commissions.json`. Not needed before M5's
-  `remote` mode is enabled: `local` mode reads `res://data/commissions.json`.
-- `git` installed and credentials configured on the dev machine.
-- M7 needs a **configured git remote** on the repository; the project has none by default. Create
-  the public repo, add it as `origin`, then publish from the dev console.
+- Godot 4.7 with the project opened; `git` in `PATH` and a credential manager for publication.
+- The public repository and its raw source address are configured (see Fixed decisions).
+- Player data lives under `user://`; the install folder is never written to.
 
 ## Stack
 
@@ -52,193 +50,151 @@ The app does not draw for the player — it motivates them, like a fitness app.
 
 ## Data models
 
-`data/commissions.json` (shared, written by dev, read by all):
+Canonical schemas live in the wiki: [Commissions source](docs/data/CommissionsSource.md),
+[Player save](docs/data/PlayerSave.md), [Profiles](docs/data/Profiles.md) and
+[Configuration and caches](docs/data/Configuration.md). Commissions are denormalised for
+receivers; `client_id` / `type_id` only serve the source editor.
 
-    { "version": 6, "updated_at": 1234567890,
-      "clients": [ { "id": "cli-001", "name": "...", "email": "..." } ],
-      "types": [ { "id": "typ-001", "name": "illustration", "duration_minutes": 2880 } ],
-      "commissions": [
-        { "id": "comm-2026-001", "title": "...", "type": "illustration", "type_id": "typ-001",
-          "duration": null, "client": "...", "client_id": "cli-001", "sender": "...",
-          "description": "...", "mail_request": "...", "mail_success": "...",
-          "mail_failure": "..." }
-      ] }
+## Shipped base
 
-`client` / `sender` / `type` / `duration` are denormalised so receivers never need the `clients`
-and `types` lists; `client_id` / `type_id` only serve the source editor.
+- Desktop shell with taskbar, live clock, notifications, Wi-Fi indicator and reusable windows
+  (drag, resize, maximize, minimize).
+- Courrier app with inbox, archive, unread state, reading pane, offer accept and refuse.
+- Commission lifecycle with real-time deadlines, reminders, success, failure and per-profile
+  persistence.
+- Shared source read locally or over HTTPS, cached and merged by id and version.
+- Local profiles, administrator gate, login screen and per-profile saves.
+- Source editor for clients, types and commissions, staging draft, validation and publication.
+- Git publication with repository, remote and branch validation, conditional commit and push.
 
-`user://profiles/<id>/save.json` (player state, one file per profile, never shared):
+## Phases
 
-    { "mails": [ { "id": "...", "sender": "...", "subject": "...", "body": "...",
-                   "read": false, "archived": false, "type": "commission_offer",
-                   "commission": { ... } } ],
-      "commissions": [ { "id": "uuid", "status": "active|success|failed",
-                         "accepted_at": 0, "deadline": 0 } ],
-      "refused": [ "uuid" ],
-      "seen_commissions": [ "uuid" ] }
+Each phase is one logical change / one commit. Acceptance is written as observable behaviour.
+Phases are ordered by priority; identifiers stay stable across reordering.
 
-`user://profiles.json` (profiles and passwords, machine local):
+### M9 — Image delivery and gallery
 
-    { "version": 1,
-      "profiles": [ { "id": "prof_<unixtime>_<hex4>", "pseudo": "admin",
-                      "password_hash": "<sha256 hex>", "is_admin": true,
-                      "created_at": 0, "updated_at": 0 } ] }
+- Delivery view from an active commission: pick an image, preview it letterboxed (contain, never
+  cropped), replace or clear it before sending.
+- Accept PNG, JPG and WebP under a size cap; copy the file under
+  `user://profiles/<id>/deliveries/<commission_id>/` and refuse unsupported or oversized files.
+- Delivering before the deadline marks success and sends the success mail; a passed deadline
+  fails the commission and accepts no delivery.
+- Galerie app with a thumbnail grid and a full-size viewer, showing client, type and delivery
+  date, per profile.
+- Acceptance: the preview and the gallery viewer render the exact delivered image; an on-time
+  delivery appears in the galerie; a late delivery leaves no entry; unsupported files are
+  refused.
+- Out of scope: cropping, editing, multiple images per commission, video, cloud storage.
 
-The legacy `user://save.json` is copied once into the admin profile save so the existing state
-survives the switch to per-profile saves.
+### M15 — Editable palette
 
-`user://sync_config.json` (player machine): sync source, see Fixed decisions.
-`user://commissions_cache.json`: last successfully fetched payload.
-`user://dev_config.json` (dev machine only): path to the local git clone.
+Decision: a typed `PaletteData` Resource saved as `res://theme/palette.tres` and edited in the
+inspector. An `enum` + `@export` only selects names, and a full editor addon adds maintenance for
+one resource; both are rejected.
 
-## Milestones
+- `PaletteData` groups colours by surface (desktop, taskbar, window, mail, commissions,
+  notifications, status) with typed `Color` exports, defaults matching the current palette.
+- Keep the `Palette` autoload as a facade: it loads the resource and exposes it as `Palette.colors`;
+  migrate `Palette.CONSTANT` reads to `Palette.colors.constant` in one sweep. Per-node injection is
+  deferred, since there is no alternate theme at runtime.
+- Editing a colour in the inspector and running the app reflects it; a missing or unreadable
+  `.tres` falls back to built-in defaults and reports the fallback.
+- Alternate themes are copies of the `.tres`; switching at runtime is not required.
+- Acceptance: every colour is editable from the inspector, no colour literal remains outside the
+  resource and its defaults, and a corrupt palette does not prevent startup.
+- Out of scope: in-game colour picker, live theme switching, user-created themes, per-profile
+  palettes.
 
-Each milestone is one logical change / one commit.
+### M8 — Mail experience
 
-M6 was split into `M6a` and `M6b`: planning added a multi-profile Profil app, a login screen and
-per-profile saves, which is more than the original "constant hash dev account + editor". `M6a` is
-itself documented as two commits (data and session, then screens) because the auth data layer and
-its screens are two logical changes.
+- A coloured notification for every new mail (offer, reminder, success, failure, info), matched
+  to the mail kind; toasts queue instead of overwriting each other.
+- Unread badge on the Courrier button, fed by the unread count and cleared as mails are read.
+- Inbox actions: mark unread again, restore an archived mail to the inbox. Archiving stays the
+  only removal path.
+- Acceptance: a new info mail notifies and bumps the badge, reading the last unread mail clears
+  the badge, and an archived mail can return to the inbox.
 
-Tests follow one rule: one test per durable system, plus one test per inter-system interaction.
-No per-behaviour splits.
+### M10 — Desktop layout
 
-### M1 — Project setup
-- Switch `project.godot` to Desktop, 1280x720 window, register autoloads.
-- Create folder tree and manager skeletons.
-- `main.tscn` with `DesktopController`: fake desktop background, taskbar with a
-  real-time clock.
-- Done when: the app launches on a desktop background with a live clock.
+Merges the former window-snapping and application-window-resizing items.
 
-### M2 — Window system
-- `WindowComponent`: draggable by title bar, close / minimize, reusable.
-- Window manager in `DesktopController`: open, focus (z-index), close.
-- Done when: icons open a draggable window that closes cleanly.
+- Dragging a window near the left or right edge snaps it to half the usable work area with a
+  preview; dragging it away restores its previous geometry.
+- The application window resizes freely with a minimum usable size; desktop, taskbar,
+  notifications and open windows reflow and clamp into the new work area.
+- Window geometry is clamped after a resize or a maximize.
+- Acceptance: a window snaps and restores, and every app stays usable after resizing the OS
+  window.
+- Out of scope: quarter-screen corners, keyboard shortcuts, multi-monitor rules, remembered
+  layout.
 
-### M3 — Mail app
-- `MailManager`: inbox list, read / unread state, persistence.
-- `MailAppController`: mail list + reading pane.
-- Archive: deleting a mail moves it to the archive, never destroys it.
-- Local only, no sync yet.
-- Done when: a hardcoded mail appears, is readable, can be archived, and read state
-  survives restart.
+### M11 — Progress and statistics
 
-### M4 — Commission lifecycle
-- `CommissionManager`: accept, complete, deadline computation, states.
-- `ClockManager`: real clock, 1-minute tick, reminder (H-24h, H-1h) and expiry signals.
-- Success mail on completion, failure mail on expiry, reminder mails.
-- Save / load player state.
-- Done when: accept → countdown → complete (success) or expiry (failure) both work
-  and persist across restarts.
+- Statistiques app: totals, success rate, average completion time, per-type breakdown, current
+  and best streak.
+- A streak counts consecutive local days with at least one delivered commission.
+- A weekly goal (delivered commissions) configurable per profile and shown on the desktop.
+- Acceptance: completing or failing a commission updates every figure immediately and survives a
+  restart; a missed day resets the current streak.
+- Out of scope: XP, levels, currency, leaderboards.
 
-### M5 — Sync (read)
-- `SyncManager`: local file or HTTPS raw, configured in `user://sync_config.json`, fetch at
-  startup and every `sync_interval_minutes`.
-- Parse, cache to `user://commissions_cache.json`, offline fallback to cache.
-- Merge by id into `CommissionManager`: unknown ids create a `commission_offer` mail once
-  (`seen_commissions`), a higher `version` refreshes pending offers only, duplicates are
-  impossible. No commission is ever removed by a sync.
-- Dev console edits the sync config and triggers a sync manually.
-- Done when: a commission added to the source shows up as a single mail, and editing a pending
-  commission with a higher `version` updates it without creating a second mail.
+### M12 — Content variety and client history
 
-### M6a — Profiles and admin session
-- `AuthManager`: local profiles, one seeded `admin` / `admin` profile, SHA-256 passwords, create,
-  connect, logout, change pseudo / password, delete. Deleting the only admin is refused; the dev
-  console deletes another profile with the admin password as confirmation.
-- Login screen at startup: profile list, connect, create, delete.
-- Per-profile player state, the legacy `user://save.json` migrating once into the admin profile.
-- Desktop gate: Profil always visible; Console dev and Éditeur only during an admin session.
-- Documented as two commits: data and session, then screens.
-- Done when: a new profile starts with an empty state, the admin finds its migrated state, and the
-  dev tools appear only after an admin login.
+- A commission carries a difficulty tag (easy / normal / hard), visible in the offer and the
+  source editor.
+- The reading pane shows the client's history from the connected profile: completed count and
+  last delivery date.
+- A commission can declare a follow-up; a success offers it exactly once, a failure does not.
+- Acceptance: difficulty is visible end to end, history only reflects the connected profile, and
+  a follow-up is offered once after success.
+- Out of scope: prices, negotiation, branching dialogue, automatic authoring.
 
-### M6b — Source editor (clients, types, commissions)
-- `CommissionEditor`: loads a working document from a pending draft (`user://pending_commissions.json`)
-  or, when no draft exists, from `SyncManager.local_path`, migrating the flat commissions into reusable
-  clients (name, email) and types (name, default duration). CRUD for the three families, each guarded by
-  the admin session and persisted to the draft after every change; a commission cannot be saved without
-  a valid client and type, and a client or type used by a commission cannot be deleted.
-- "Valider et publier" writes the whole document to `SyncManager.local_path` (clients, types,
-  commissions), bumps `version` and `updated_at`, refuses an unreadable source, then syncs. Deletions
-  therefore reach new receivers only: an already-seen commission is never removed by the merge.
-- Published commissions stay denormalised (`client`, `sender`, `type`, effective `duration`) so the
-  receivers keep working without reading the new element lists.
-- Done when: an admin creates, edits and deletes clients, types and commissions, publishes to the
-  source, and a new commission arrives as exactly one offer mail.
+### M13 — Accessibility and input
 
-### M7 — Dev publish (done)
-- `SyncManager` loads `user://dev_config.json`: `repo_path` (default: the project root, which
-  holds `data/commissions.json`), `remote` (`origin`) and `branch` (`main`).
-- `SyncManager.publish()`: admin session required, the configured path must be a git repository and
-  the remote must exist, the globalized `local_path` must live inside `repo_path` (one source file,
-  no copy), then `git add`, a conditional `chore(data): publish commissions v<N>` commit and
-  `git push`. Output is captured (`OS.execute`, blocking) and returned line by line; a failed push
-  leaves the local source intact and never creates a partial commit.
-- Dev console: "Publication git" section (repository, remote, branch, save, publish) with a
-  read-only log of git output.
-- Editor "Valider et publier": local source write followed by the git push, status line reporting
-  either the published version or the push failure. The full git log stays in the dev console.
-- Done when: pressing Publish commits and pushes, and a client picks it up (M5).
+- Full keyboard navigation across the taskbar, open windows, lists and forms, with a visible
+  focus state.
+- Shortcuts: close the focused window, cycle windows, open Courrier and Commandes.
+- A UI scale setting for interface text and spacing, persisted per machine.
+- Reduced motion: no window or toast animation when enabled.
+- Acceptance: every app is reachable and usable without a mouse, and the scale setting applies
+  immediately and survives a restart.
+- Out of scope: screen-reader support, colour-blind palettes, localisation.
 
-### M8 — Mail notifications and icon badges
-- Notify on every new mail (offer, success, failure, reminder), not only new commission offers.
-- Unread badge (pastille) on the Courrier app button, cleared when the mails are read.
-- Toast notifications coloured by type (info / success / failure), with the matching icon accent.
-- Done when: a new mail shows a coloured notification and a badge, and the badge clears once read.
+### M14 — Data safety and portability
 
-### M9 — Commission delivery with an image, and a gallery app
-- Clicking a commission opens a delivery view where the player attaches an image.
-- Delivering before the deadline completes the commission (success mail); a deadline already
-  passed fails it, without a delivery.
-- A galerie app lists the delivered commissions with their image and date.
-- Done when: a commission is delivered with an image in time (success) or late (failure), and the
-  image is listed in the galerie.
+- Rotating backup of each profile save; an unreadable save falls back to the last valid backup
+  instead of an empty state.
+- Export and import a profile save as JSON for backup or machine transfer.
+- A profile reset with explicit confirmation that clears saves but keeps the profile.
+- Acceptance: a corrupted save recovers, export and import round-trip, and a reset leaves a
+  usable empty profile.
+- Out of scope: cloud sync, automatic off-machine backup.
 
-### M10 — Window snapping to half screen (documented, not scheduled)
-- Dragging a window close to the left or right edge of the screen snaps it automatically to half
-  the usable space (taskbar excluded), with a preview while dragging, like Windows.
-- Dragging the window away from the edge restores its previous size and position.
-- The taskbar and the desktop keep their current behaviour; the window minimum size still applies.
-- Out of scope: quarter-screen corners, keyboard shortcuts, multi-monitor edge rules.
+### M16 — Windows release
 
-### M11 — Resizable application window (documented, not scheduled)
-- The application window itself (the OS window hosting the whole project, not a `WindowComponent`)
-  can be resized freely by the player, like any desktop application.
-- The desktop, taskbar, notifications and open windows adapt to the new size; existing windows are
-  clamped back into the work area and the taskbar stays anchored to the bottom.
-- A minimum application size keeps every app usable, and the viewport keeps its current
-  `canvas_items` / `expand` stretch behaviour.
-- Out of scope: fullscreen or borderless toggles, per-monitor DPI rules, remembering the window
-  size and position across launches.
+- Windows export preset with app icon, version and metadata; tests and the development MCP addon
+  excluded from the exported build.
+- Portable zip release; saves stay under `user://`, and the app starts on a clean Windows account
+  with the seeded administrator.
+- A release checklist: version bump, changelog entry, smoke test on a clean profile.
+- Acceptance: the exported build runs on a clean Windows account, opens the seeded administrator,
+  and writes nothing into the install folder.
+- Out of scope: installer or MSIX, auto-update, code signing.
 
 ## Risks
 
-- `res://` is read-only in an exported build → dev push must target a configured local
-  clone, not the packed project.
-- Client-side password hash is not real authentication.
-- The repo must be public, otherwise the raw fetch leaks a token.
+- `res://` is read-only in an exported build: runtime writes stay under `user://`, and publication
+  targets a configured clone.
+- Client-side password hashes are a gameplay gate, not real authentication.
+- The repository must stay public; the raw fetch cannot carry a token.
+- Git publication is blocking (`OS.execute`): a slow push freezes the app until git returns.
+- Image delivery grows player saves; M9 must cap image size and keep copies per profile.
 
-## Proposed tests (to validate before writing)
+## Quality bar
 
-- `T-AUTH` (system, `AuthManager`): seeded admin, login, profile creation, credential change,
-  deletion with the profile password and with the admin password, last-admin guard, persistence,
-  unreadable profile file left untouched.
-- `T-AUTH-SAVE` (interaction, auth + player state): two profiles never share a save, the legacy
-  `save.json` is copied once into the admin profile.
-- `T-AUTH-DSK` (interaction, auth + screens): login screen flow, desktop dev buttons only in an
-  admin session, deletion from the dev console with the admin password.
-- `T-EDIT` (system, `CommissionEditor`): migration of flat commissions into clients and types, CRUD
-  refusals (duplicates, invalid duration, referenced client/type), draft kept apart from the source,
-  publish (version bump, timestamp, denormalised fields, unreadable source refused), missing source,
-  unreadable draft.
-- `T-EDIT-SYNC` (interaction, editor + sync): a published commission becomes exactly one offer mail,
-  a second sync duplicates nothing, and a published deletion leaves the already-received offers intact.
-- `CommissionManager.accept`: `deadline == accepted_at + duration_minutes * 60` (override or type default).
-- Expiry → status `failed` + exactly one failure mail.
-- Sync merge: only unknown ids produce a "new commission" mail; version guard and cache.
-- Sync + commissions: pending offer refreshed on a higher version, accepted / refused / archived
-  untouched.
-- Sync + mails: offer mail shape (unread, unarchived, sender, client), no duplicate mail ids.
-- Cheat + sync: config round-trip and manual sync status.
-- `save.json` round-trip: write then read returns identical state.
+- One test per durable system, plus one per inter-system interaction. New behaviour extends the
+  existing test rather than adding a sibling.
+- The headless test scene passes before a phase is accepted.
+- No comments in code; colours come from the palette; identifiers are English, UI copy French.

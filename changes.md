@@ -19,11 +19,11 @@
   `connect`. The addon accepts one client only, so disconnect other directories first
   (`C:\Users\Admin`); OpenCode marks the server failed after one timed-out handshake and never
   retries on its own.
-- To plan (Optimisations, `EXT`): make the palette editable from the editor. Requires a custom
-  `Resource` (`class_name PaletteData` with `@export` colours) saved as `res://theme/palette.tres`,
-  injected via `@export var palette: PaletteData` on controllers/components, with the autoload
-  either loading it or disappearing. A bare autoload script cannot expose `@export` colours; no
-  plugin is needed. Deferred for now.
+- Planned (ROADMAP M15): make the palette editable from the editor with a custom `Resource`
+  (`class_name PaletteData` with `@export` colours) saved as `res://theme/palette.tres`, loaded by
+  the `Palette` autoload as a facade (`Palette.colors`). An `enum` + `@export` cannot edit values
+  and a full addon is unnecessary; per-node injection is deferred until runtime themes exist. A
+  bare autoload script cannot expose `@export` colours.
 - Headless tests: the `godot` CLI on this machine is 4.4.1, which cannot parse the MCP addon
   (`MCPGameBridge` fails on the missing `Logger` base class). To run `tests/test_scene.tscn`,
   temporarily comment out the `MCPGameBridge` autoload, run with `godot_console.exe` (the
@@ -37,3 +37,24 @@
   repository, the source location inside it and the remote are validated before any `git add`, so a
   missing remote leaves the repository untouched. `OS.execute` stays blocking on purpose: it is an
   admin-only dev action, and a worker thread would buy little for a one-shot push.
+
+## 2026-10-21 — Roadmap reevaluation
+
+Replaced the milestone history with a compact shipped base and a forward-looking phase list.
+Removed the completion marker, merged the window-snapping and application-resizing items into
+M10, merged notifications, badge and inbox actions into M8, folded the duplicated prerequisites
+into a working-machine note, replaced the duplicated data models with links to `docs/data/`, and
+reduced the stale proposed-test list to the quality bar already enforced by `tests/test_scene.gd`.
+
+Added phases: M11 progress and statistics, M12 content variety and client history, M13
+accessibility and input, M14 data safety and portability, M15 editable palette, M16 Windows
+release. M9 now specifies image rendering (preview, viewer, formats, size cap, per-profile
+storage). Their data needs (difficulty, follow-up, streak, backup, palette resource) are
+deliberately not designed yet. Phase sections are priority-ordered: M9 first, then M15, then the
+base order; identifiers stay stable.
+
+Files: `ROADMAP.md`; milestone references updated in `docs/Features.md` and `docs/Changelog.md`;
+the palette optimisation entry removed from `docs/Optimisations.md` because it is now a phase.
+Docs invalidated: `docs/api/Palette.md` and the palette convention in `docs/Architecture.md` once
+M15 lands.
+

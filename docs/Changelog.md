@@ -32,6 +32,5 @@ publish new commissions from an administrator session.
 - No drawing canvas: the player draws outside the app.
 - No image delivery and no gallery (M9).
 - No unread badge and no notification for every mail kind (M8).
-- The application window itself is not yet sized for free resizing (M11), and windows do not snap
-  to half screen (M10).
+- Free application-window resizing and half-screen window snapping are not implemented yet (M10).
 - Passwords are a gameplay gate, not real authentication.
