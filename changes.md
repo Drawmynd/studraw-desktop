@@ -33,6 +33,10 @@
   denormalised (`client`, `sender`, `type`, effective `duration`) next to their `client_id` /
   `type_id`, so receivers never need the `clients` / `types` lists. A deletion only affects new
   receivers: the merge never removes an already-received commission.
+- Git publishing commits only `local_path` (resolved relative to `repo_path`) and never pulls. The
+  repository, the source location inside it and the remote are validated before any `git add`, so a
+  missing remote leaves the repository untouched. `OS.execute` stays blocking on purpose: it is an
+  admin-only dev action, and a worker thread would buy little for a one-shot push.
 
 ## 2026-10-18 — Initial roadmap and scope
 
@@ -632,3 +636,71 @@ reworking app scene roots into containers.
 
 Invalidated docs pages: none.
 
+
+## 2026-10-21 - M7 git publish in SyncManager
+
+`managers/sync_manager.gd` now owns the dev publication. `load_dev_config()` / `save_dev_config()`
+read and write `user://dev_config.json` (`repo_path`, `remote`, `branch`), whose path is injectable
+(`dev_config_path`) for tests. `repo_path` defaults to the globalized project root, where
+`data/commissions.json` already lives; `remote` and `branch` default to `origin` and `main`.
+
+`publish()` requires an admin session, refuses an empty / missing repository, a path that is not a
+git repository, a branch without its remote, an unreadable source, and a `local_path` outside
+`repo_path` - the globalized source is resolved to a repository-relative path, so there is exactly
+one source file and no copy to keep in sync. It then runs `git add -- <relative>`, commits only when
+the staged file differs (`chore(data): publish commissions v<N>`, version read from the source),
+and pushes to the configured remote and branch through `OS.execute` (blocking, stdout and stderr
+captured). The result carries `ok`, `error`, `version` and the git lines; a failed push leaves the
+local source intact and a missing remote fails before `git add`. An unchanged source still pushes,
+so a previously failed push can be completed without a new commit.
+
+Tests: `T-PUBLISH` covers the admin guard, the empty / missing / non-repository path, the missing
+remote, the source outside the repository, a real publication to a temporary bare remote (one
+commit, version in the subject, file content on the remote, captured output), the dev config
+round-trip, an unchanged second publish creating no commit, and a failing push preserving the local
+source. 18 tests, 0 failure (T-EDIT and T-EDIT-SYNC unchanged).
+
+Files touched: `managers/sync_manager.gd`, `tests/test_scene.gd`, `changes.md`.
+
+Why: the editor wrote the shared source locally only; the whole publication chain has to end in the
+public repository for receivers to pick the content up through M5.
+
+Out of scope (deliberate): `git pull`, conflict resolution, creating the clone or the remote from
+the app, interactive credential handling, automatic periodic publishing, publishing from an
+exported build.
+
+Invalidated docs pages: none.
+
+## 2026-10-21 - M7 publish wiring in the console and the editor
+
+The dev console gained a "Publication git" section: repository, remote and branch fields, an
+"Enregistrer" action writing `user://dev_config.json`, a "Publier la source" button and a read-only
+`TextEdit` journal. `publish_now()` saves the config, calls `SyncManager.publish()`, appends the git
+lines to the journal (scrolled to the bottom), reports the outcome in the status line and triggers a
+sync on success. Fields, log and buttons take the usual palette (no literal colour).
+
+The editor's "Valider et publier" now chains `CommissionEditor.push()` with `SyncManager.publish()`:
+a successful push reports the published version and syncs; a push failure keeps the local write and
+reports "Ecrit localement - version N, push echoue : ..." without syncing. The full git output stays
+in the dev console.
+
+`ROADMAP.md` records M7 as done with its actual behaviour, adds the M7 remote prerequisite, and
+documents a future M10: snapping a window to half the usable screen near the left or right edge,
+with a drag preview and a restore when dragged away (documented only, not implemented).
+
+Tests: `T-PUBLISH-SYNC` publishes a commission through the editor and git, clones the temporary bare
+remote into a receiver, and checks that the pushed commission becomes exactly one offer mail and
+that a second sync duplicates nothing. 18 tests, 0 failure.
+
+Files touched: `controllers/dev/dev_console_controller.gd`,
+`controllers/dev/dev_console_controller.tscn`,
+`controllers/editor/commission_editor_controller.gd`, `ROADMAP.md`, `changes.md`.
+
+Why: the publication must be reachable from the UI (console for the config and the full log,
+editor for the normal flow) and the roadmap has to carry the window-snapping idea without
+implementing it.
+
+Out of scope (deliberate): a dedicated publish log inside the editor, live git output streaming,
+window snapping.
+
+Invalidated docs pages: none.

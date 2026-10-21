@@ -39,6 +39,8 @@ The app does not draw for the player — it motivates them, like a fitness app.
 - A **public** GitHub repo + its raw URL for `data/commissions.json`. Not needed before M5's
   `remote` mode is enabled: `local` mode reads `res://data/commissions.json`.
 - `git` installed and credentials configured on the dev machine.
+- M7 needs a **configured git remote** on the repository; the project has none by default. Create
+  the public repo, add it as `origin`, then publish from the dev console.
 
 ## Stack
 
@@ -161,10 +163,18 @@ No per-behaviour splits.
 - Done when: an admin creates, edits and deletes clients, types and commissions, publishes to the
   source, and a new commission arrives as exactly one offer mail.
 
-### M7 — Dev publish
-- `SyncManager.push()`: `git add` / `commit` / `push` via `OS.execute`, using the clone
-  path from `user://dev_config.json`.
-- Publish button shows git stdout / stderr in the console.
+### M7 — Dev publish (done)
+- `SyncManager` loads `user://dev_config.json`: `repo_path` (default: the project root, which
+  holds `data/commissions.json`), `remote` (`origin`) and `branch` (`main`).
+- `SyncManager.publish()`: admin session required, the configured path must be a git repository and
+  the remote must exist, the globalized `local_path` must live inside `repo_path` (one source file,
+  no copy), then `git add`, a conditional `chore(data): publish commissions v<N>` commit and
+  `git push`. Output is captured (`OS.execute`, blocking) and returned line by line; a failed push
+  leaves the local source intact and never creates a partial commit.
+- Dev console: "Publication git" section (repository, remote, branch, save, publish) with a
+  read-only log of git output.
+- Editor "Valider et publier": local source write followed by the git push, status line reporting
+  either the published version or the push failure. The full git log stays in the dev console.
 - Done when: pressing Publish commits and pushes, and a client picks it up (M5).
 
 ### M8 — Mail notifications and icon badges
@@ -180,6 +190,13 @@ No per-behaviour splits.
 - A galerie app lists the delivered commissions with their image and date.
 - Done when: a commission is delivered with an image in time (success) or late (failure), and the
   image is listed in the galerie.
+
+### M10 — Window snapping to half screen (documented, not scheduled)
+- Dragging a window close to the left or right edge of the screen snaps it automatically to half
+  the usable space (taskbar excluded), with a preview while dragging, like Windows.
+- Dragging the window away from the edge restores its previous size and position.
+- The taskbar and the desktop keep their current behaviour; the window minimum size still applies.
+- Out of scope: quarter-screen corners, keyboard shortcuts, multi-monitor edge rules.
 
 ## Risks
 

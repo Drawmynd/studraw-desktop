@@ -13,6 +13,15 @@ class FakeDesktop:
 		add_child(content)
 
 
+class FakeAuth:
+	extends Node
+
+	var admin := true
+
+	func is_dev_session() -> bool:
+		return admin
+
+
 func _ready() -> void:
 	_run.call_deferred()
 
@@ -34,6 +43,8 @@ func _run() -> void:
 	results["T-AUTH-DSK"] = await _test_auth_screens()
 	results["T-EDIT"] = _test_commission_editor()
 	results["T-EDIT-SYNC"] = _test_editor_sync()
+	results["T-PUBLISH"] = _test_publish()
+	results["T-PUBLISH-SYNC"] = _test_publish_sync()
 	results["T-PAL"] = _test_palette()
 	var failure_count := 0
 	for test_name in results:
@@ -1561,6 +1572,244 @@ func _test_editor_sync() -> Array[String]:
 	]:
 		_remove_file(path)
 	return failures
+
+
+func _test_publish() -> Array[String]:
+	var failures: Array[String] = []
+	var availability := _git_command("", ["--version"])
+	if int(availability["exit"]) != 0:
+		failures.append("publish: git is not available in PATH")
+		return failures
+	var base := "user://test_publish_%d" % Time.get_ticks_usec()
+	var config_path := "%s_dev.json" % base
+	var repo := "%s_repo" % base
+	var remote := "%s_remote.git" % base
+	var outside := "%s_outside.json" % base
+	var source_path := "%s/data/commissions.json" % repo
+	var repo_absolute := ProjectSettings.globalize_path(repo)
+	DirAccess.make_dir_recursive_absolute(repo_absolute + "/data")
+	_write_json(source_path, {
+		"version": 1,
+		"updated_at": 0,
+		"commissions": [_payload_definition("pub_a", "Pub A")],
+	})
+	_write_json(outside, {"version": 1, "updated_at": 0, "commissions": []})
+	var fake_auth := FakeAuth.new()
+	var sync = load("res://managers/sync_manager.gd").new()
+	sync.dev_config_path = config_path
+	sync.auth_manager = fake_auth
+	sync.local_path = source_path
+	sync.repo_path = repo
+
+	fake_auth.admin = false
+	if bool(sync.publish().get("ok", false)):
+		failures.append("publish: a non-admin session published")
+	fake_auth.admin = true
+	sync.repo_path = ""
+	if bool(sync.publish().get("ok", false)):
+		failures.append("publish: an empty repository path published")
+	sync.repo_path = "%s_missing" % base
+	if bool(sync.publish().get("ok", false)):
+		failures.append("publish: a missing repository published")
+	var plain := "%s_plain" % base
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(plain))
+	sync.repo_path = plain
+	var not_a_repo: Dictionary = sync.publish()
+	if bool(not_a_repo.get("ok", false)) or not str(not_a_repo.get("error", "")).contains("dépôt git"):
+		failures.append("publish: a plain directory was accepted as a repository")
+
+	if int(_git_command("", ["init", "--bare", "-b", "main", ProjectSettings.globalize_path(remote)])["exit"]) != 0:
+		failures.append("publish: the bare remote could not be created")
+	if int(_git_command("", ["init", "-b", "main", repo_absolute])["exit"]) != 0:
+		failures.append("publish: the repository could not be created")
+	_git_command(repo_absolute, ["config", "user.email", "publish@test.example"])
+	_git_command(repo_absolute, ["config", "user.name", "Publish Test"])
+	sync.repo_path = repo
+	var no_remote: Dictionary = sync.publish()
+	if bool(no_remote.get("ok", false)) or not str(no_remote.get("error", "")).contains("Remote"):
+		failures.append("publish: a repository without its remote was published")
+	_git_command(repo_absolute, ["remote", "add", "origin", ProjectSettings.globalize_path(remote)])
+	sync.local_path = outside
+	var outside_result: Dictionary = sync.publish()
+	if bool(outside_result.get("ok", false)) or not str(outside_result.get("error", "")).contains("dans le dépôt"):
+		failures.append("publish: a source outside the repository was published")
+
+	sync.local_path = source_path
+	var first: Dictionary = sync.publish()
+	if not bool(first.get("ok", false)):
+		failures.append("publish: a valid source was refused (%s)" % str(first.get("error", "")))
+		fake_auth.free()
+		sync.free()
+		_remove_directory(repo)
+		_remove_directory(remote)
+		_remove_directory(plain)
+		_remove_file(outside)
+		_remove_file(config_path)
+		return failures
+	if int(first.get("version", 0)) != 1:
+		failures.append("publish: the reported version is wrong")
+	if PackedStringArray(first.get("lines", PackedStringArray())).is_empty():
+		failures.append("publish: no git output was captured")
+	var count: Dictionary = _git_command(
+		"", ["--git-dir", ProjectSettings.globalize_path(remote), "rev-list", "--count", "HEAD"]
+	)
+	if str(count["text"]).strip_edges() != "1":
+		failures.append("publish: expected one commit in the remote, got %s" % str(count["text"]))
+	var subject: Dictionary = _git_command(
+		"", ["--git-dir", ProjectSettings.globalize_path(remote), "log", "-1", "--pretty=%s"]
+	)
+	if not str(subject["text"]).contains("commissions v1"):
+		failures.append("publish: the commit subject does not carry the version")
+	var published: Dictionary = _git_command(
+		"", ["--git-dir", ProjectSettings.globalize_path(remote), "show", "HEAD:data/commissions.json"]
+	)
+	if not str(published["text"]).contains("Pub A"):
+		failures.append("publish: the remote file does not contain the source")
+
+	sync.git_remote = "origin"
+	sync.git_branch = "main"
+	sync.save_dev_config()
+	var reloaded = load("res://managers/sync_manager.gd").new()
+	reloaded.dev_config_path = config_path
+	reloaded.load_dev_config()
+	if reloaded.repo_path != repo or reloaded.git_remote != "origin" or reloaded.git_branch != "main":
+		failures.append("publish: the dev config was not reloaded")
+	reloaded.free()
+
+	var second: Dictionary = sync.publish()
+	if not bool(second.get("ok", false)):
+		failures.append("publish: an unchanged source failed (%s)" % str(second.get("error", "")))
+	count = _git_command(
+		"", ["--git-dir", ProjectSettings.globalize_path(remote), "rev-list", "--count", "HEAD"]
+	)
+	if str(count["text"]).strip_edges() != "1":
+		failures.append("publish: an unchanged source created a commit")
+
+	_write_json(source_path, {
+		"version": 2,
+		"updated_at": 1,
+		"commissions": [_payload_definition("pub_a", "Pub A"), _payload_definition("pub_b", "Pub B")],
+	})
+	_remove_directory(remote)
+	var failing: Dictionary = sync.publish()
+	if bool(failing.get("ok", false)):
+		failures.append("publish: a failing push was reported as a success")
+	if not str(failing.get("error", "")).contains("Push"):
+		failures.append("publish: a failing push did not report the push error")
+	var kept = JSON.parse_string(FileAccess.get_file_as_string(source_path))
+	if not (kept is Dictionary) or int(kept.get("version", 0)) != 2:
+		failures.append("publish: a failing push altered the local source")
+
+	fake_auth.free()
+	sync.free()
+	_remove_directory(repo)
+	_remove_directory(remote)
+	_remove_directory(plain)
+	_remove_file(outside)
+	_remove_file(config_path)
+	return failures
+
+
+func _test_publish_sync() -> Array[String]:
+	var failures: Array[String] = []
+	var availability := _git_command("", ["--version"])
+	if int(availability["exit"]) != 0:
+		failures.append("publish+sync: git is not available in PATH")
+		return failures
+	var base := "user://test_publish_sync_%d" % Time.get_ticks_usec()
+	var save_path := "%s_save.json" % base
+	var cache_path := "%s_cache.json" % base
+	var config_path := "%s_dev.json" % base
+	var repo := "%s_repo" % base
+	var remote := "%s_remote.git" % base
+	var receiver := "%s_receiver" % base
+	var source_path := "%s/data/commissions.json" % repo
+	var repo_absolute := ProjectSettings.globalize_path(repo)
+	DirAccess.make_dir_recursive_absolute(repo_absolute + "/data")
+	_write_json(source_path, {"version": 1, "updated_at": 0, "commissions": []})
+	var fake_auth := FakeAuth.new()
+	var sync = load("res://managers/sync_manager.gd").new()
+	sync.dev_config_path = config_path
+	sync.auth_manager = fake_auth
+	sync.local_path = source_path
+	sync.repo_path = repo
+	var editor = load("res://managers/commission_editor.gd").new()
+	editor.auth_manager = fake_auth
+	editor.sync_manager = sync
+	editor.draft_path = "%s_draft.json" % base
+
+	_git_command("", ["init", "--bare", "-b", "main", ProjectSettings.globalize_path(remote)])
+	_git_command("", ["init", "-b", "main", repo_absolute])
+	_git_command(repo_absolute, ["config", "user.email", "publish@test.example"])
+	_git_command(repo_absolute, ["config", "user.name", "Publish Test"])
+	_git_command(repo_absolute, ["remote", "add", "origin", ProjectSettings.globalize_path(remote)])
+
+	if not bool(editor.load_document().get("ok", false)):
+		failures.append("publish+sync: the source was not loaded")
+	var client_id := str(editor.add_client("Studio Publié", "publie@example.com").get("id", ""))
+	var type_id := str(editor.add_type("affiche", "600").get("id", ""))
+	var commission_result: Dictionary = editor.add_commission({
+		"title": "Affiche publiée",
+		"client_id": client_id,
+		"type_id": type_id,
+		"duration": "",
+		"description": "Affiche poussée par git.",
+		"mail_request": "Merci pour cette affiche.",
+		"mail_success": "Merci.",
+		"mail_failure": "Trop tard.",
+	})
+	if not bool(commission_result.get("ok", false)):
+		failures.append("publish+sync: the commission was not created")
+	if not bool(editor.push(1792454400).get("ok", false)):
+		failures.append("publish+sync: the local publish failed")
+	var pushed: Dictionary = sync.publish()
+	if not bool(pushed.get("ok", false)):
+		failures.append("publish+sync: the git publish failed (%s)" % str(pushed.get("error", "")))
+
+	if int(_git_command(
+		"", ["clone", ProjectSettings.globalize_path(remote), ProjectSettings.globalize_path(receiver)]
+	)["exit"]) != 0:
+		failures.append("publish+sync: the remote could not be cloned")
+	var isolated := _make_isolated_managers(save_path)
+	var receiver_sync = load("res://managers/sync_manager.gd").new()
+	receiver_sync.local_path = "%s/data/commissions.json" % receiver
+	receiver_sync.cache_path = cache_path
+	receiver_sync.commission_manager = isolated["commission_manager"]
+	receiver_sync.fetch()
+	if _count_offer_mails(isolated["mail_manager"]) != 1:
+		failures.append("publish+sync: the pushed commission did not become one offer")
+	receiver_sync.fetch()
+	if _count_offer_mails(isolated["mail_manager"]) != 1:
+		failures.append("publish+sync: a second sync duplicated the offer")
+	var offer: Dictionary = isolated["mail_manager"].get_mail("offre_%s" % str(commission_result.get("id", "")))
+	if offer.is_empty():
+		failures.append("publish+sync: the pushed offer mail is missing")
+
+	fake_auth.free()
+	editor.free()
+	sync.free()
+	receiver_sync.free()
+	isolated["mail_manager"].free()
+	isolated["commission_manager"].free()
+	for path in [save_path, cache_path, config_path, "%s_draft.json" % base]:
+		_remove_file(path)
+	_remove_directory(repo)
+	_remove_directory(remote)
+	_remove_directory(receiver)
+	return failures
+
+
+func _git_command(repository: String, arguments: Array) -> Dictionary:
+	var full := PackedStringArray()
+	if repository != "":
+		full.append_array(PackedStringArray(["-C", repository]))
+	full.append_array(PackedStringArray(arguments))
+	var output: Array = []
+	var exit_code := OS.execute("git", full, output, true, false)
+	var lines: PackedStringArray = []
+	for entry in output:
+		lines.append(str(entry).strip_edges())
+	return {"exit": exit_code, "text": "\n".join(lines), "lines": lines}
 
 
 func _editor_find(elements: Array, key: String, value: String) -> Dictionary:

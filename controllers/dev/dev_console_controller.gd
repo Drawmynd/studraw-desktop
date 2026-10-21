@@ -19,6 +19,13 @@ extends Control
 @onready var sync_button: Button = %SyncButton
 @onready var raw_file_button: Button = %RawFileButton
 @onready var last_sync_label: Label = %LastSyncLabel
+@onready var publish_header: Label = %PublishHeader
+@onready var repo_path_edit: LineEdit = %RepoPathEdit
+@onready var git_remote_edit: LineEdit = %GitRemoteEdit
+@onready var git_branch_edit: LineEdit = %GitBranchEdit
+@onready var save_dev_config_button: Button = %SaveDevConfigButton
+@onready var publish_button: Button = %PublishButton
+@onready var publish_log: TextEdit = %PublishLog
 @onready var force_wifi_check: CheckButton = %ForceWifiCheck
 @onready var profiles_separator: HSeparator = %ProfilesSeparator
 @onready var profiles_header: Label = %ProfilesHeader
@@ -102,6 +109,8 @@ func _ready() -> void:
 	save_config_button.pressed.connect(save_sync_config)
 	sync_button.pressed.connect(sync_now)
 	raw_file_button.pressed.connect(show_raw_file)
+	save_dev_config_button.pressed.connect(save_dev_config)
+	publish_button.pressed.connect(publish_now)
 	force_wifi_check.toggled.connect(_on_force_wifi_toggled)
 	delete_profile_button.pressed.connect(delete_selected_profile)
 	if auth_manager != null and auth_manager.has_signal("profiles_changed"):
@@ -115,6 +124,7 @@ func _ready() -> void:
 	if sync_manager != null:
 		force_wifi_check.button_pressed = sync_manager.force_remote_ok
 	_populate_sync_fields()
+	_populate_dev_fields()
 	_update_last_sync_label()
 	_populate_profiles()
 	_update_profiles_visibility()
@@ -133,14 +143,21 @@ func _apply_palette() -> void:
 	header.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
 	status_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
 	sync_header.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
+	publish_header.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
 	profiles_header.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
 	last_sync_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
+	publish_log.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
+	publish_log.add_theme_stylebox_override("normal", _make_button_style(Palette.MAIL_LIST_BACKGROUND))
+	publish_log.add_theme_stylebox_override("read_only", _make_button_style(Palette.MAIL_LIST_BACKGROUND))
+	publish_log.add_theme_stylebox_override("focus", _make_button_style(Palette.MAIL_LIST_BACKGROUND))
 	for child in buttons_box.get_children():
 		if child is Button:
 			_style_button(child)
 	_style_button(save_config_button)
 	_style_button(sync_button)
 	_style_button(raw_file_button)
+	_style_button(save_dev_config_button)
+	_style_button(publish_button)
 	_style_danger_button(delete_profile_button)
 	profile_list.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
 	profile_list.add_theme_color_override("font_selected_color", Palette.TITLE_TEXT_ACTIVE)
@@ -148,7 +165,16 @@ func _apply_palette() -> void:
 	profile_list.add_theme_stylebox_override(
 		"selected", _make_button_style(Palette.MAIL_SELECTED_BACKGROUND)
 	)
-	for field in [mode_option, local_path_edit, remote_url_edit, interval_edit, admin_password_edit]:
+	for field in [
+		mode_option,
+		local_path_edit,
+		remote_url_edit,
+		interval_edit,
+		admin_password_edit,
+		repo_path_edit,
+		git_remote_edit,
+		git_branch_edit,
+	]:
 		_style_field(field)
 
 
@@ -318,6 +344,53 @@ func save_sync_config() -> void:
 	sync_manager.save_config()
 	sync_manager.apply_interval(sync_manager.sync_interval_minutes)
 	_set_status("Config de synchronisation enregistrée.")
+
+
+func _populate_dev_fields() -> void:
+	if sync_manager == null:
+		return
+	repo_path_edit.text = sync_manager.repo_path
+	git_remote_edit.text = sync_manager.git_remote
+	git_branch_edit.text = sync_manager.git_branch
+
+
+func save_dev_config() -> void:
+	if sync_manager == null:
+		_set_status("SyncManager indisponible.")
+		return
+	sync_manager.repo_path = repo_path_edit.text.strip_edges()
+	sync_manager.git_remote = git_remote_edit.text.strip_edges()
+	sync_manager.git_branch = git_branch_edit.text.strip_edges()
+	sync_manager.save_dev_config()
+	_set_status("Config de publication enregistrée.")
+
+
+func publish_now() -> bool:
+	if sync_manager == null:
+		_set_status("SyncManager indisponible.")
+		return false
+	save_dev_config()
+	_set_status("Publication en cours…")
+	var result: Dictionary = sync_manager.publish()
+	_append_publish_log(result)
+	if not bool(result.get("ok", false)):
+		_set_status(str(result.get("error", "Publication impossible.")))
+		return false
+	_set_status("Publié — version %d." % int(result.get("version", 0)))
+	if sync_manager.has_method("fetch"):
+		sync_manager.fetch()
+	return true
+
+
+func _append_publish_log(result: Dictionary) -> void:
+	var lines: PackedStringArray = result.get("lines", PackedStringArray())
+	var text := "\n".join(lines)
+	if publish_log.text.strip_edges() != "" and text != "":
+		text = "%s\n%s" % [publish_log.text, text]
+	elif publish_log.text.strip_edges() != "":
+		text = publish_log.text
+	publish_log.text = text
+	publish_log.scroll_vertical = publish_log.get_line_count()
 
 
 func sync_now() -> void:

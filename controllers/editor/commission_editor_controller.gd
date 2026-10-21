@@ -177,9 +177,24 @@ func publish() -> bool:
 	if not bool(result.get("ok", false)):
 		_set_status(str(result.get("error", "Publication impossible.")), "error")
 		return false
+	var version := int(result.get("version", 0))
+	if sync_manager == null or not sync_manager.has_method("publish"):
+		reload()
+		_set_status("Écrit localement — version %d, publication git indisponible." % version, "error")
+		return false
+	var pushed: Dictionary = sync_manager.publish()
+	if not bool(pushed.get("ok", false)):
+		reload()
+		_set_status(
+			"Écrit localement — version %d, push échoué : %s" % [
+				version, str(pushed.get("error", "")).trim_suffix(".")
+			],
+			"error"
+		)
+		return false
 	reload()
-	_set_status("Publié — version %d." % int(result.get("version", 0)))
-	if sync_manager != null and sync_manager.has_method("fetch"):
+	_set_status("Publié — version %d." % version)
+	if sync_manager.has_method("fetch"):
 		sync_manager.fetch()
 	return true
 

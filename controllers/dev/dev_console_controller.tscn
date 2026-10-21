@@ -170,6 +170,68 @@ layout_mode = 2
 text = "Dernière sync : —"
 autowrap_mode = 3
 
+[node name="PublishSeparator" type="HSeparator" parent="Panel/Scroll/Box"]
+layout_mode = 2
+
+[node name="PublishHeader" type="Label" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Publication git"
+
+[node name="PublishGrid" type="GridContainer" parent="Panel/Scroll/Box"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+
+[node name="RepoPathLabel" type="Label" parent="Panel/Scroll/Box/PublishGrid"]
+layout_mode = 2
+text = "Dépôt"
+
+[node name="RepoPathEdit" type="LineEdit" parent="Panel/Scroll/Box/PublishGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GitRemoteLabel" type="Label" parent="Panel/Scroll/Box/PublishGrid"]
+layout_mode = 2
+text = "Remote"
+
+[node name="GitRemoteEdit" type="LineEdit" parent="Panel/Scroll/Box/PublishGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GitBranchLabel" type="Label" parent="Panel/Scroll/Box/PublishGrid"]
+layout_mode = 2
+text = "Branche"
+
+[node name="GitBranchEdit" type="LineEdit" parent="Panel/Scroll/Box/PublishGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PublishButtons" type="HBoxContainer" parent="Panel/Scroll/Box"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SaveDevConfigButton" type="Button" parent="Panel/Scroll/Box/PublishButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enregistrer"
+
+[node name="PublishButton" type="Button" parent="Panel/Scroll/Box/PublishButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Publier la source"
+
+[node name="PublishLog" type="TextEdit" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+editable = false
+scroll_fit_content_height = false
+
 [node name="ProfilesSeparator" type="HSeparator" parent="Panel/Scroll/Box"]
 unique_name_in_owner = true
 layout_mode = 2
