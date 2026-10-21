@@ -456,3 +456,63 @@ commit); commission editor (M6b); password recovery or reset, profile promotion,
 across launches, password salting, orphan save purge.
 
 Invalidated docs pages: none.
+
+## 2026-10-21 — M6a (2/2) login screen, profile app and admin gate
+
+The app now starts on `controllers/login/login_controller.gd` + `.tscn` (new main scene) in labelled
+steps: "Étape 1 sur 2 — Choisissez un compte" lists the profiles with "Continuer" and "Nouveau profil"
+(pseudo, password, confirmation, "Retour"), then "Étape 2 sur 2 — Mot de passe" shows the selected
+pseudo, the password field, "Se connecter" and "Retour". The admin profile is filtered out of the list;
+five left clicks on the "Studraw" title reveal it, select it and open its credentials step directly.
+A successful connection wires
+`MailManager.save_path` and `CommissionManager.save_path` to the profile save through
+`AuthManager.get_profile_save_path()` and reloads both, then switches to the desktop. The switch only
+happens when the login screen is the current scene, so tests can drive it without replacing their own
+scene.
+
+Added `controllers/profile/profile_controller.gd` + `.tscn` ("Profil" button, always visible) as a
+step machine: the first step only offers actions ("Changer mes identifiants", "Supprimer le profil",
+"Se déconnecter"); the change flow asks for the new pseudo / password / confirmation, then a separate
+step for the current password; the delete flow asks for the password in its own step. No password field
+is visible before the matching action is chosen. A saved change returns to the actions, a deletion
+removes the profile and its save and leads back to the login screen. The admin profile cannot be
+deleted this way.
+
+The taskbar gained a "Déconnexion" button: it closes the session and returns to the login screen
+without opening the Profil app.
+
+The desktop hides "Console dev" unless `AuthManager.is_dev_session()` is true and reacts to
+`session_changed`. The dev console gained a "Profils" section (profile list, admin password field,
+delete button) using `delete_profile_as_admin()`, hidden outside an admin session.
+
+Palette gained `DANGER_BACKGROUND`, `DANGER_BACKGROUND_HOVER`, `DANGER_BACKGROUND_PRESSED`,
+`DANGER_TEXT`, `STATUS_TEXT`, `STATUS_ERROR_TEXT` and a `status_color(kind)`
+resolver; the login, profile and console screens build every style from them, no literal colour. Status
+lines are white (`STATUS_TEXT`) and only turn red for errors and warnings — no green outside the Wi-Fi
+state.
+
+Tests: added `T-AUTH-DSK` (auth + screens: the admin is hidden from the selection, four clicks on the
+title keep it hidden and the fifth reveals it and opens its credentials step, creation replaces the
+selection and leads to the credentials step, the back button returns to the selection, mismatched confirmation
+refused, failed login leaves the save unwired, successful login wires both managers and emits one
+signal, desktop gate hidden for a standard profile and shown for the admin, profile app starts on its action buttons, the change action opens the credentials step then a separate
+current-password step, a saved change returns to the actions, the delete action opens its own
+confirmation step, deletion refused with a wrong password and applied with the right one — save
+removed and login requested — admin profile not deletable from the app, taskbar logout closing the
+session, console deletion refused with a wrong admin password and applied with the right one). 14
+tests, 0 failure. T-CHEAT-SYNC needs no change: the console gate lives in the desktop, and profile
+deletion is guarded in `AuthManager`, both already covered.
+
+Files touched: `controllers/login/login_controller.gd` (new), `controllers/login/login_controller.tscn`
+(new), `controllers/profile/profile_controller.gd` (new), `controllers/profile/profile_controller.tscn`
+(new), `controllers/desktop/desktop_controller.gd`, `controllers/desktop/desktop_controller.tscn`,
+`controllers/dev/dev_console_controller.gd`, `controllers/dev/dev_console_controller.tscn`,
+`managers/palette.gd`, `project.godot`, `tests/test_scene.gd`, `changes.md`.
+
+Why: profiles have to be selected before any player state exists, and the dev tools must not exist
+for a standard profile.
+
+Out of scope (deliberate): commission editor (M6b), session persistence across launches, password
+recovery, deleting a profile while its save is in use by another screen, per-profile window layout.
+
+Invalidated docs pages: none.

@@ -169,3 +169,29 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Dernière sync : —"
 autowrap_mode = 3
+
+[node name="ProfilesSeparator" type="HSeparator" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ProfilesHeader" type="Label" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Profils"
+
+[node name="ProfileList" type="ItemList" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+focus_mode = 2
+
+[node name="AdminPasswordEdit" type="LineEdit" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Mot de passe administrateur"
+secret = true
+
+[node name="DeleteProfileButton" type="Button" parent="Panel/Scroll/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Supprimer le profil sélectionné"

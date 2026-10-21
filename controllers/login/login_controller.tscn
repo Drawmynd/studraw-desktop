@@ -1,0 +1,166 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://controllers/login/login_controller.gd" id="1_login"]
+
+[node name="LoginController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_login")
+
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Center/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 0
+theme_override_font_sizes/font_size = 28
+text = "Studraw"
+horizontal_alignment = 1
+
+[node name="StepLabel" type="Label" parent="Center/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Étape 1 sur 2 — Choisissez un compte"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="SelectionBox" type="VBoxContainer" parent="Center/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SelectionLabel" type="Label" parent="Center/Panel/Box/SelectionBox"]
+layout_mode = 2
+text = "Choisissez un compte"
+
+[node name="ProfileList" type="ItemList" parent="Center/Panel/Box/SelectionBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+focus_mode = 2
+
+[node name="SelectionButtons" type="HBoxContainer" parent="Center/Panel/Box/SelectionBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ContinueButton" type="Button" parent="Center/Panel/Box/SelectionBox/SelectionButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Continuer"
+
+[node name="NewProfileButton" type="Button" parent="Center/Panel/Box/SelectionBox/SelectionButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Nouveau profil"
+
+[node name="CreationBox" type="VBoxContainer" parent="Center/Panel/Box"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CreationLabel" type="Label" parent="Center/Panel/Box/CreationBox"]
+layout_mode = 2
+text = "Nouveau profil"
+
+[node name="CreatePseudoEdit" type="LineEdit" parent="Center/Panel/Box/CreationBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Pseudo"
+
+[node name="CreatePasswordEdit" type="LineEdit" parent="Center/Panel/Box/CreationBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Mot de passe"
+secret = true
+
+[node name="CreateConfirmEdit" type="LineEdit" parent="Center/Panel/Box/CreationBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Confirmer le mot de passe"
+secret = true
+
+[node name="CreationButtons" type="HBoxContainer" parent="Center/Panel/Box/CreationBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CreateButton" type="Button" parent="Center/Panel/Box/CreationBox/CreationButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Créer"
+
+[node name="CreationBackButton" type="Button" parent="Center/Panel/Box/CreationBox/CreationButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Retour"
+
+[node name="CredentialsBox" type="VBoxContainer" parent="Center/Panel/Box"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CredentialsLabel" type="Label" parent="Center/Panel/Box/CredentialsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Connexion"
+
+[node name="PasswordEdit" type="LineEdit" parent="Center/Panel/Box/CredentialsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Mot de passe"
+secret = true
+
+[node name="CredentialsButtons" type="HBoxContainer" parent="Center/Panel/Box/CredentialsBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LoginButton" type="Button" parent="Center/Panel/Box/CredentialsBox/CredentialsButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Se connecter"
+
+[node name="CredentialsBackButton" type="Button" parent="Center/Panel/Box/CredentialsBox/CredentialsButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Retour"
+
+[node name="StatusLabel" type="Label" parent="Center/Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+horizontal_alignment = 1

@@ -31,6 +31,7 @@ func _run() -> void:
 	results["T-WIFI"] = await _test_wifi_indicator()
 	results["T-AUTH"] = await _test_auth_manager()
 	results["T-AUTH-SAVE"] = await _test_auth_profile_saves()
+	results["T-AUTH-DSK"] = await _test_auth_screens()
 	results["T-PAL"] = _test_palette()
 	var failure_count := 0
 	for test_name in results:
@@ -1029,6 +1030,221 @@ func _test_auth_profile_saves() -> Array[String]:
 	_remove_file(legacy_path)
 	_remove_directory(save_dir)
 	_remove_directory("%s_saves_migrated" % base)
+	return failures
+
+
+func _test_auth_screens() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_auth_dsk_%d" % Time.get_ticks_usec()
+	var profiles_path := "%s_profiles.json" % base
+	var save_dir := "%s_saves" % base
+	var auth = load("res://managers/auth_manager.gd").new()
+	auth.profiles_path = profiles_path
+	auth.profile_save_dir = save_dir
+	auth.legacy_save_path = "%s_legacy.json" % base
+	add_child(auth)
+	var admin_id := str(auth.get_profiles()[0]["id"])
+
+	var mail_manager = load("res://managers/mail_manager.gd").new()
+	mail_manager.save_path = "%s_unwired.json" % base
+	var commission_manager = load("res://managers/commission_manager.gd").new()
+	commission_manager.save_path = "%s_unwired.json" % base
+	commission_manager.mail_manager = mail_manager
+
+	var login = load("res://controllers/login/login_controller.tscn").instantiate()
+	login.auth_manager = auth
+	login.mail_manager = mail_manager
+	login.commission_manager = commission_manager
+	add_child(login)
+	await get_tree().process_frame
+	if login.profile_list.item_count != 0:
+		failures.append("login: the seeded admin is listed by default")
+	if not login.selection_box.visible:
+		failures.append("login: the selection step is not the first one")
+
+	login.open_creation()
+	if not login.creation_box.visible or login.selection_box.visible:
+		failures.append("login: the creation step did not replace the selection")
+	login.create_pseudo_edit.text = "Testeur"
+	login.create_password_edit.text = "secret"
+	login.create_confirm_edit.text = "secret"
+	if not login.create_profile():
+		failures.append("login: a valid profile creation failed (%s)" % login.status_label.text)
+	var testeur_id: String = login.selected_profile_id()
+	if testeur_id == "" or testeur_id == admin_id:
+		failures.append("login: the created profile is not selected")
+	if not login.credentials_box.visible:
+		failures.append("login: creation did not lead to the credentials step")
+	if auth.get_profiles().size() != 2:
+		failures.append("login: the created profile is missing")
+
+	login.back_to_selection()
+	if login.profile_list.item_count != 1:
+		failures.append("login: the admin profile is listed without the secret")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	for _index in 4:
+		login.title_label.gui_input.emit(click)
+	if login.profile_list.item_count != 1:
+		failures.append("login: four clicks on the title revealed the admin")
+	login.title_label.gui_input.emit(click)
+	if login.profile_list.item_count != 2:
+		failures.append("login: five clicks on the title did not reveal the admin")
+	if not login.credentials_box.visible or not login.credentials_label.text.contains("admin"):
+		failures.append("login: revealing the admin did not open its credentials step")
+
+	login.back_to_selection()
+	if not login.selection_box.visible:
+		failures.append("login: the back button does not return to the selection")
+	login.open_creation()
+	login.create_pseudo_edit.text = "Autre"
+	login.create_password_edit.text = "secret"
+	login.create_confirm_edit.text = "different"
+	if login.create_profile():
+		failures.append("login: a mismatched confirmation was accepted")
+	if auth.get_profiles().size() != 2:
+		failures.append("login: a rejected creation added a profile")
+
+	login.back_to_selection()
+	login.populate_profiles(testeur_id)
+	login.open_credentials()
+	if not login.credentials_box.visible:
+		failures.append("login: the credentials step did not open")
+	login.password_edit.text = "wrong"
+	if login.login():
+		failures.append("login: a wrong password opened the session")
+	if auth.is_authenticated():
+		failures.append("login: a failed attempt opened the session")
+	if mail_manager.save_path != "%s_unwired.json" % base:
+		failures.append("login: the save was wired before a successful login")
+
+	var succeeded := {"value": 0}
+	login.login_succeeded.connect(func(_profile_id: String) -> void: succeeded["value"] += 1)
+	login.password_edit.text = "secret"
+	if not login.login():
+		failures.append("login: a valid login failed (%s)" % login.status_label.text)
+	if succeeded["value"] != 1:
+		failures.append("login: expected 1 success signal, got %d" % succeeded["value"])
+	if str(auth.get_current_profile().get("id", "")) != testeur_id:
+		failures.append("login: the wrong profile is connected")
+	if mail_manager.save_path != auth.get_profile_save_path(testeur_id):
+		failures.append("login: the mail save was not wired to the profile")
+	if commission_manager.save_path != auth.get_profile_save_path(testeur_id):
+		failures.append("login: the commission save was not wired to the profile")
+
+	var desktop = load("res://controllers/desktop/desktop_controller.tscn").instantiate()
+	desktop.auth_manager = auth
+	add_child(desktop)
+	await get_tree().process_frame
+	if desktop.dev_button.visible:
+		failures.append("desktop: the dev console is visible without an admin session")
+	if not desktop.profile_button.visible:
+		failures.append("desktop: the profile app is hidden")
+
+	desktop._on_logout_pressed()
+	if auth.is_authenticated():
+		failures.append("desktop: the taskbar logout kept the session open")
+	auth.authenticate(admin_id, "admin")
+	if not desktop.dev_button.visible:
+		failures.append("desktop: the dev console is hidden during an admin session")
+
+	var profile_app = load("res://controllers/profile/profile_controller.tscn").instantiate()
+	profile_app.auth_manager = auth
+	add_child(profile_app)
+	await get_tree().process_frame
+	if not profile_app.actions_box.visible:
+		failures.append("profile: the action buttons are not the first step")
+	profile_app.open_credentials()
+	if not profile_app.credentials_box.visible or profile_app.password_box.visible:
+		failures.append("profile: the change action did not open the credentials step")
+	profile_app.pseudo_edit.text = "Studio"
+	profile_app.password_edit.text = ""
+	profile_app.confirm_edit.text = ""
+	profile_app.open_password()
+	if not profile_app.password_box.visible:
+		failures.append("profile: the current password step did not open")
+	profile_app.current_password_edit.text = "admin"
+	if not profile_app.save_credentials():
+		failures.append("profile: a valid change failed (%s)" % profile_app.status_label.text)
+	if not profile_app.actions_box.visible:
+		failures.append("profile: a saved change did not return to the actions")
+	if str(auth.get_current_profile().get("pseudo", "")) != "Studio":
+		failures.append("profile: the pseudo was not applied")
+	var logout_events := {"value": 0}
+	profile_app.logout_requested.connect(func() -> void: logout_events["value"] += 1)
+	profile_app.request_logout()
+	if logout_events["value"] != 1 or auth.is_authenticated():
+		failures.append("profile: logout did not close the session")
+	if desktop.dev_button.visible:
+		failures.append("desktop: the dev console stayed visible after logout")
+
+	var temp_id := str(auth.create_profile("Temp", "secret").get("id", ""))
+	mail_manager.save_path = auth.get_profile_save_path(temp_id)
+	mail_manager.load_state()
+	mail_manager.add_mail({"id": "temp_mail", "sender": "temp@test.example", "subject": "T", "body": "T"})
+	auth.authenticate(temp_id, "secret")
+	profile_app.refresh()
+	profile_app.open_delete()
+	if not profile_app.delete_box.visible:
+		failures.append("profile: the delete action did not open the confirmation step")
+	profile_app.delete_password_edit.text = "wrong"
+	if profile_app.delete_profile():
+		failures.append("profile: a wrong password deleted the profile")
+	if auth.get_profile(temp_id).is_empty():
+		failures.append("profile: a rejected deletion removed the profile")
+	var events_before := int(logout_events["value"])
+	profile_app.delete_password_edit.text = "secret"
+	if not profile_app.delete_profile():
+		failures.append("profile: a valid deletion failed (%s)" % profile_app.status_label.text)
+	if int(logout_events["value"]) != events_before + 1:
+		failures.append("profile: deletion did not request the login screen")
+	if auth.is_authenticated():
+		failures.append("profile: deletion kept the session open")
+	if not auth.get_profile(temp_id).is_empty():
+		failures.append("profile: deletion did not remove the profile")
+	if FileAccess.file_exists(auth.get_profile_save_path(temp_id)):
+		failures.append("profile: deletion kept the profile save")
+
+	auth.authenticate(admin_id, "admin")
+	profile_app.refresh()
+	profile_app.open_delete()
+	profile_app.delete_password_edit.text = "admin"
+	if profile_app.delete_profile():
+		failures.append("profile: the admin profile was deleted from the app")
+
+	auth.authenticate(admin_id, "admin")
+	var console = load("res://controllers/dev/dev_console_controller.tscn").instantiate()
+	console.auth_manager = auth
+	add_child(console)
+	await get_tree().process_frame
+	if not console.profile_list.visible:
+		failures.append("console: the profiles section is hidden during an admin session")
+	console._populate_profiles(testeur_id)
+	console.admin_password_edit.text = "wrong"
+	if console.delete_selected_profile():
+		failures.append("console: a wrong admin password deleted a profile")
+	if auth.get_profiles().size() != 2:
+		failures.append("console: a rejected deletion removed a profile")
+	console.admin_password_edit.text = "admin"
+	if not console.delete_selected_profile():
+		failures.append("console: a valid admin deletion failed (%s)" % console.status_label.text)
+	if auth.get_profiles().size() != 1:
+		failures.append("console: the profile was not deleted")
+	if console._selected_profile_id() != admin_id:
+		failures.append("console: the list did not fall back to the admin profile")
+
+	login.queue_free()
+	desktop.queue_free()
+	profile_app.queue_free()
+	console.queue_free()
+	auth.queue_free()
+	mail_manager.free()
+	commission_manager.free()
+	await get_tree().process_frame
+	_remove_file("%s_unwired.json" % base)
+	_remove_file(profiles_path)
+	_remove_directory(save_dir)
 	return failures
 
 

@@ -54,6 +54,14 @@ focus_mode = 0
 text = "Console dev"
 alignment = 0
 
+[node name="ProfileButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Profil"
+alignment = 0
+
 [node name="Windows" type="Control" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
@@ -106,6 +114,12 @@ theme_override_constants/separation = 6
 [node name="Spacer" type="Control" parent="Taskbar/TaskbarRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+
+[node name="LogoutButton" type="Button" parent="Taskbar/TaskbarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Déconnexion"
 
 [node name="WifiIndicator" parent="Taskbar/TaskbarRow" instance=ExtResource("2_wifi")]
 unique_name_in_owner = true

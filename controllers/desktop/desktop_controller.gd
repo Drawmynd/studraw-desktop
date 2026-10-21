@@ -6,6 +6,8 @@ const COMMISSIONS_APP_SCENE: PackedScene = preload(
 	"res://controllers/commissions/commissions_app_controller.tscn"
 )
 const DEV_CONSOLE_SCENE: PackedScene = preload("res://controllers/dev/dev_console_controller.tscn")
+const PROFILE_APP_SCENE: PackedScene = preload("res://controllers/profile/profile_controller.tscn")
+const LOGIN_SCENE := "res://controllers/login/login_controller.tscn"
 const WIFI_INDICATOR_SCRIPT := preload("res://components/wifi/wifi_indicator.gd")
 const CASCADE_ORIGIN := Vector2(96, 72)
 const CASCADE_STEPS := 6
@@ -20,8 +22,12 @@ const NOTIFICATION_DURATION := 6.0
 @onready var mail_button: Button = %MailButton
 @onready var commissions_button: Button = %CommissionsButton
 @onready var dev_button: Button = %DevButton
+@onready var profile_button: Button = %ProfileButton
+@onready var logout_button: Button = %LogoutButton
 @onready var notification_panel: PanelContainer = %NotificationPanel
 @onready var notification_label: Label = %NotificationLabel
+
+var auth_manager: Node
 
 var _cascade_index: int = 0
 var _window_buttons: Dictionary = {}
@@ -31,12 +37,19 @@ var _notification_visible: bool = false
 
 
 func _ready() -> void:
+	if auth_manager == null:
+		auth_manager = get_node_or_null("/root/AuthManager")
 	_apply_palette()
 	_update_clock()
 	ClockManager.second_tick.connect(_update_clock)
 	mail_button.pressed.connect(_open_mail_app)
 	commissions_button.pressed.connect(_open_commissions_app)
 	dev_button.pressed.connect(_open_dev_console)
+	profile_button.pressed.connect(_open_profile_app)
+	logout_button.pressed.connect(_on_logout_pressed)
+	if auth_manager != null and auth_manager.has_signal("session_changed"):
+		auth_manager.session_changed.connect(_on_session_changed)
+	_update_admin_visibility()
 	CommissionManager.commission_reminder.connect(_on_commission_reminder)
 	CommissionManager.commission_completed.connect(_on_commission_completed)
 	CommissionManager.commission_failed.connect(_on_commission_failed)
@@ -63,6 +76,8 @@ func _apply_palette() -> void:
 	_style_app_button(mail_button)
 	_style_app_button(commissions_button)
 	_style_app_button(dev_button)
+	_style_app_button(profile_button)
+	_style_app_button(logout_button)
 	var notification_style := StyleBoxFlat.new()
 	notification_style.bg_color = Palette.NOTIFICATION_BACKGROUND
 	notification_style.border_color = Palette.NOTIFICATION_BORDER
@@ -122,7 +137,38 @@ func _open_commissions_app() -> void:
 func _open_dev_console() -> void:
 	var console = DEV_CONSOLE_SCENE.instantiate()
 	console.desktop = self
+	if auth_manager != null:
+		console.auth_manager = auth_manager
 	open_window("Console dev", console)
+
+
+func _open_profile_app() -> void:
+	var profile = PROFILE_APP_SCENE.instantiate()
+	if auth_manager != null:
+		profile.auth_manager = auth_manager
+	profile.logout_requested.connect(_on_logout_requested)
+	open_window("Profil", profile)
+
+
+func _update_admin_visibility() -> void:
+	var is_admin: bool = auth_manager != null and auth_manager.is_dev_session()
+	dev_button.visible = is_admin
+
+
+func _on_session_changed(_authenticated: bool, _is_admin: bool) -> void:
+	_update_admin_visibility()
+
+
+func _on_logout_pressed() -> void:
+	if auth_manager != null:
+		auth_manager.logout()
+	_on_logout_requested()
+
+
+func _on_logout_requested() -> void:
+	_update_admin_visibility()
+	if get_tree().current_scene == self:
+		get_tree().change_scene_to_file(LOGIN_SCENE)
 
 
 func _on_commission_reminder(commission_id: String, hours_remaining: int) -> void:

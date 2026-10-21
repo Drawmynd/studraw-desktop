@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Studraw"
-run/main_scene="res://controllers/desktop/desktop_controller.tscn"
+run/main_scene="res://controllers/login/login_controller.tscn"
 config/features=PackedStringArray("4.7")
 config/icon="res://icon.svg"
 

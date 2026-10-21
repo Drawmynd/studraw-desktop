@@ -20,9 +20,17 @@ extends Control
 @onready var raw_file_button: Button = %RawFileButton
 @onready var last_sync_label: Label = %LastSyncLabel
 @onready var force_wifi_check: CheckButton = %ForceWifiCheck
+@onready var profiles_separator: HSeparator = %ProfilesSeparator
+@onready var profiles_header: Label = %ProfilesHeader
+@onready var profile_list: ItemList = %ProfileList
+@onready var admin_password_edit: LineEdit = %AdminPasswordEdit
+@onready var delete_profile_button: Button = %DeleteProfileButton
 
 var sync_manager: Node
+var auth_manager: Node
 var desktop: Node
+
+var _profile_ids: Array[String] = []
 
 const RAW_FILE_SCENE: PackedScene = preload("res://controllers/dev/raw_file_controller.tscn")
 
@@ -82,6 +90,8 @@ const FIXTURES := [
 func _ready() -> void:
 	if sync_manager == null:
 		sync_manager = get_node_or_null("/root/SyncManager")
+	if auth_manager == null:
+		auth_manager = get_node_or_null("/root/AuthManager")
 	_apply_palette()
 	clean_button.pressed.connect(_on_clean_pressed)
 	offer_button.pressed.connect(_on_offer_pressed)
@@ -93,6 +103,11 @@ func _ready() -> void:
 	sync_button.pressed.connect(sync_now)
 	raw_file_button.pressed.connect(show_raw_file)
 	force_wifi_check.toggled.connect(_on_force_wifi_toggled)
+	delete_profile_button.pressed.connect(delete_selected_profile)
+	if auth_manager != null and auth_manager.has_signal("profiles_changed"):
+		auth_manager.profiles_changed.connect(_on_profiles_changed)
+	if auth_manager != null and auth_manager.has_signal("session_changed"):
+		auth_manager.session_changed.connect(_on_auth_session_changed)
 	if sync_manager != null and sync_manager.has_signal("mode_changed"):
 		sync_manager.mode_changed.connect(_on_sync_mode_changed)
 	if sync_manager != null and not sync_manager.sync_finished.is_connected(_on_sync_finished):
@@ -101,6 +116,8 @@ func _ready() -> void:
 		force_wifi_check.button_pressed = sync_manager.force_remote_ok
 	_populate_sync_fields()
 	_update_last_sync_label()
+	_populate_profiles()
+	_update_profiles_visibility()
 	_set_status("Prêt.")
 
 
@@ -116,6 +133,7 @@ func _apply_palette() -> void:
 	header.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
 	status_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
 	sync_header.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
+	profiles_header.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
 	last_sync_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
 	for child in buttons_box.get_children():
 		if child is Button:
@@ -123,7 +141,14 @@ func _apply_palette() -> void:
 	_style_button(save_config_button)
 	_style_button(sync_button)
 	_style_button(raw_file_button)
-	for field in [mode_option, local_path_edit, remote_url_edit, interval_edit]:
+	_style_danger_button(delete_profile_button)
+	profile_list.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
+	profile_list.add_theme_color_override("font_selected_color", Palette.TITLE_TEXT_ACTIVE)
+	profile_list.add_theme_stylebox_override("panel", _make_button_style(Palette.MAIL_LIST_BACKGROUND))
+	profile_list.add_theme_stylebox_override(
+		"selected", _make_button_style(Palette.MAIL_SELECTED_BACKGROUND)
+	)
+	for field in [mode_option, local_path_edit, remote_url_edit, interval_edit, admin_password_edit]:
 		_style_field(field)
 
 
@@ -164,6 +189,87 @@ func _make_button_style(background_color: Color) -> StyleBoxFlat:
 	style.content_margin_top = 6.0
 	style.content_margin_bottom = 6.0
 	return style
+
+
+func _style_danger_button(button: Button) -> void:
+	button.add_theme_color_override("font_color", Palette.DANGER_TEXT)
+	button.add_theme_color_override("font_hover_color", Palette.DANGER_TEXT)
+	button.add_theme_color_override("font_pressed_color", Palette.DANGER_TEXT)
+	button.add_theme_color_override("font_focus_color", Palette.DANGER_TEXT)
+	button.add_theme_stylebox_override("normal", _make_button_style(Palette.DANGER_BACKGROUND))
+	button.add_theme_stylebox_override("hover", _make_button_style(Palette.DANGER_BACKGROUND_HOVER))
+	button.add_theme_stylebox_override("pressed", _make_button_style(Palette.DANGER_BACKGROUND_PRESSED))
+	button.add_theme_stylebox_override("focus", _make_button_style(Palette.DANGER_BACKGROUND))
+
+
+func _populate_profiles(selected_id: String = "") -> void:
+	if auth_manager == null or profile_list == null:
+		return
+	if selected_id == "":
+		selected_id = _selected_profile_id()
+	profile_list.clear()
+	_profile_ids.clear()
+	for profile in auth_manager.get_profiles():
+		var label := str(profile["pseudo"])
+		if bool(profile["is_admin"]):
+			label = "%s (admin)" % label
+		var index := profile_list.add_item(label)
+		profile_list.set_item_metadata(index, str(profile["id"]))
+		_profile_ids.append(str(profile["id"]))
+	if _profile_ids.is_empty():
+		return
+	var target := 0
+	if selected_id != "":
+		var found := _profile_ids.find(selected_id)
+		if found >= 0:
+			target = found
+	profile_list.select(target)
+
+
+func _selected_profile_id() -> String:
+	if profile_list == null:
+		return ""
+	var selection := profile_list.get_selected_items()
+	if selection.is_empty():
+		return ""
+	return _profile_ids[selection[0]]
+
+
+func delete_selected_profile() -> bool:
+	if auth_manager == null:
+		_set_status("Gestionnaire de profils indisponible.")
+		return false
+	var profile_id := _selected_profile_id()
+	if profile_id == "":
+		_set_status("Sélectionnez un profil.")
+		return false
+	var result: Dictionary = auth_manager.delete_profile_as_admin(
+		profile_id, admin_password_edit.text
+	)
+	if not bool(result.get("ok", false)):
+		_set_status(str(result.get("error", "Suppression impossible.")))
+		return false
+	admin_password_edit.text = ""
+	_populate_profiles()
+	_set_status("Profil supprimé.")
+	return true
+
+
+func _update_profiles_visibility() -> void:
+	var is_admin: bool = auth_manager != null and auth_manager.is_dev_session()
+	profiles_separator.visible = is_admin
+	profiles_header.visible = is_admin
+	profile_list.visible = is_admin
+	admin_password_edit.visible = is_admin
+	delete_profile_button.visible = is_admin
+
+
+func _on_profiles_changed() -> void:
+	_populate_profiles()
+
+
+func _on_auth_session_changed(_authenticated: bool, _is_admin: bool) -> void:
+	_update_profiles_visibility()
 
 
 func _on_clean_pressed() -> void:

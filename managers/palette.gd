@@ -44,3 +44,15 @@ const WIFI_ERROR := Color("#e06c75")
 const NOTIFICATION_BACKGROUND := Color("#2e384a")
 const NOTIFICATION_BORDER := Color("#4a5870")
 const NOTIFICATION_TEXT := Color("#f2f5fa")
+const DANGER_BACKGROUND := Color("#a8323f")
+const DANGER_BACKGROUND_HOVER := Color("#c03d4c")
+const DANGER_BACKGROUND_PRESSED := Color("#8a2833")
+const DANGER_TEXT := Color("#f8e9eb")
+const STATUS_TEXT := Color("#f2f5fa")
+const STATUS_ERROR_TEXT := Color("#e06c75")
+
+
+func status_color(kind: String) -> Color:
+	if kind == "error":
+		return STATUS_ERROR_TEXT
+	return STATUS_TEXT
