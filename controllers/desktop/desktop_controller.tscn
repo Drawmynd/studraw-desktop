@@ -46,6 +46,14 @@ focus_mode = 0
 text = "Commandes"
 alignment = 0
 
+[node name="EditorButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Éditeur"
+alignment = 0
+
 [node name="DevButton" type="Button" parent="AppButtons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 40)

@@ -28,6 +28,11 @@
   (`MCPGameBridge` fails on the missing `Logger` base class). To run `tests/test_scene.tscn`,
   temporarily comment out the `MCPGameBridge` autoload, run with `godot_console.exe` (the
   `godot.exe` shim returns without output), then restore `project.godot`.
+- The source editor works on a staging copy (`user://pending_commissions.json`); the published
+  source (`SyncManager.local_path`) is only written by `CommissionEditor.push()`. Commissions stay
+  denormalised (`client`, `sender`, `type`, effective `duration`) next to their `client_id` /
+  `type_id`, so receivers never need the `clients` / `types` lists. A deletion only affects new
+  receivers: the merge never removes an already-received commission.
 
 ## 2026-10-18 — Initial roadmap and scope
 
@@ -540,6 +545,90 @@ and could not be resized down.
 
 Out of scope (deliberate): per-app scroll tuning, horizontal scrolling, wrapping `RichTextLabel`
 (false by default), resizing the window from its content.
+
+Invalidated docs pages: none.
+
+## 2026-10-21 — M6b source editor
+
+`managers/commission_editor.gd` (autoload `CommissionEditor`) now edits a whole source document instead
+of appending one commission. `load_document()` reads the pending draft (`user://pending_commissions.json`)
+when it exists, otherwise `SyncManager.local_path`, and migrates flat commissions into reusable elements:
+a client per distinct `client` name (carrying the `sender` as its email) and a type per distinct `type`
+(legacy type durations win over a commission's own duration, which stays an override). Unreadable draft
+or source: refused, never overwritten.
+
+CRUD: `add_client` / `update_client` / `remove_client`, `add_type` / `update_type` / `remove_type`
+(name + default duration in minutes), `add_commission` / `update_commission` / `remove_commission`.
+Every mutation requires `AuthManager.is_dev_session()`, validates (non-empty names, positive duration,
+unique names, a commission needs a title, a request message, a known client and a known type) and saves
+the draft immediately. A client or type used by a commission cannot be deleted; renaming one rewrites the
+denormalised fields of its commissions. A commission stores the effective duration (override or type
+default) plus `client_id` / `type_id` next to the flat `client` / `sender` / `type` / `duration`, so
+receivers need no change.
+
+`push()` validates the document, rereads the source (refuses an unreadable one), replaces `clients`,
+`types` and `commissions`, bumps `version` and `updated_at`, saves the draft, and returns the new
+version. Deletions only affect the published source: the receivers' merge never removes an
+already-received commission.
+
+`controllers/editor/commission_editor_controller.{gd,tscn}` reuses the Courrier layout: an
+`HSplitContainer` with a left panel (family tabs Commandes / Clients / Types, the element list,
+"Nouvelle commande / client / type") and a right detail panel (the form of the selected family,
+"Enregistrer" and "Supprimer", and a "Valider et publier" action that stays visible, then syncs).
+Selecting an element fills the form and the selection survives a save; the status line is white
+(red only for errors). Panels, list, tabs and buttons take the mail palette and styling. The window
+opens at 880×600.
+
+`components/resize_grip/resize_grip.gd` is a small grip handle (two short lines, vertical-resize
+cursor, hover highlight) placed under the request, success and failure text areas: dragging it up or
+down sets the target's minimum height between 40 and 400 px. The controller wires the three grips to
+their `TextEdit` on start; the window scroll absorbs the extra height.
+
+The taskbar "Éditeur" button stays behind the admin gate.
+
+Tests: `T-EDIT` covers the migration, the duplicate / invalid duration / referenced element refusals,
+the admin guard, the draft kept apart from the source, the publish (version, timestamp, denormalised
+fields), the unreadable source refusal and the unreadable draft refusal, and a missing source created at
+version 1. `T-EDIT-SYNC` covers publish → exactly one offer mail, no duplicate on a second sync, and a
+published deletion leaving received offers intact. `T-AUTH-DSK` checks the editor button in the desktop
+gate. 16 tests, 0 failure. Layout verified by a real-render screenshot.
+
+Files touched: `managers/commission_editor.gd`, `controllers/editor/commission_editor_controller.gd`,
+`controllers/editor/commission_editor_controller.tscn`,
+`components/resize_grip/resize_grip.gd`, `controllers/desktop/desktop_controller.gd`,
+`controllers/desktop/desktop_controller.tscn`, `project.godot`, `tests/test_scene.gd`, `ROADMAP.md`,
+`changes.md`.
+
+Why: commissions, their clients and their types only came from the shared JSON source; an admin needs to
+maintain them from the app, reuse an existing client, and stage changes before publishing them.
+
+Out of scope (deliberate): the M7 git push, writing to the remote source, deleting a commission for
+receivers that already received it, order or archive state in the source, image delivery (M9).
+
+Invalidated docs pages: none.
+
+## 2026-10-21 — Window scroll for anchored content roots
+
+The previous window change only scrolled content whose root is a container. App scenes are bare
+`Control` roots with a full-rect panel child, so the root reported a minimum size of zero: the
+`ScrollContainer` sized it to the viewport and the panel inside overflowed and was clipped instead of
+scrolling (the commission editor form was cut off with no scrollbar). `WindowComponent.setup()` now
+copies the minimum size of each full-rect child (plus its insets) into the content's
+`custom_minimum_size`, and re-runs the copy on `minimum_size_changed`, so the scroll viewport knows the
+real content height.
+
+Autowrapping is no longer forced on labels living in an `HBoxContainer` or a `GridContainer`: an
+autowrapped `Label` reports a minimum width of 1, which collapsed a grid caption column to one
+character per line. Those labels keep their intrinsic width; wrapping still applies to labels stacked
+in vertical layouts, where it prevents the horizontal overflow.
+
+Files touched: `components/window/window_component.gd`, `changes.md`.
+
+Why: the editor form (and any app window narrower or shorter than its panel) overflowed, the caption
+column was unreadable and the bottom of the form could not be reached.
+
+Out of scope (deliberate): horizontal scrolling (content stays hard cropped), per-app layouts,
+reworking app scene roots into containers.
 
 Invalidated docs pages: none.
 

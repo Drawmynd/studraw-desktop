@@ -32,6 +32,8 @@ func _run() -> void:
 	results["T-AUTH"] = await _test_auth_manager()
 	results["T-AUTH-SAVE"] = await _test_auth_profile_saves()
 	results["T-AUTH-DSK"] = await _test_auth_screens()
+	results["T-EDIT"] = _test_commission_editor()
+	results["T-EDIT-SYNC"] = _test_editor_sync()
 	results["T-PAL"] = _test_palette()
 	var failure_count := 0
 	for test_name in results:
@@ -1137,8 +1139,8 @@ func _test_auth_screens() -> Array[String]:
 	desktop.auth_manager = auth
 	add_child(desktop)
 	await get_tree().process_frame
-	if desktop.dev_button.visible:
-		failures.append("desktop: the dev console is visible without an admin session")
+	if desktop.dev_button.visible or desktop.editor_button.visible:
+		failures.append("desktop: the dev tools are visible without an admin session")
 	if not desktop.profile_button.visible:
 		failures.append("desktop: the profile app is hidden")
 
@@ -1146,8 +1148,8 @@ func _test_auth_screens() -> Array[String]:
 	if auth.is_authenticated():
 		failures.append("desktop: the taskbar logout kept the session open")
 	auth.authenticate(admin_id, "admin")
-	if not desktop.dev_button.visible:
-		failures.append("desktop: the dev console is hidden during an admin session")
+	if not desktop.dev_button.visible or not desktop.editor_button.visible:
+		failures.append("desktop: the dev tools are hidden during an admin session")
 
 	var profile_app = load("res://controllers/profile/profile_controller.tscn").instantiate()
 	profile_app.auth_manager = auth
@@ -1176,8 +1178,8 @@ func _test_auth_screens() -> Array[String]:
 	profile_app.request_logout()
 	if logout_events["value"] != 1 or auth.is_authenticated():
 		failures.append("profile: logout did not close the session")
-	if desktop.dev_button.visible:
-		failures.append("desktop: the dev console stayed visible after logout")
+	if desktop.dev_button.visible or desktop.editor_button.visible:
+		failures.append("desktop: the dev tools stayed visible after logout")
 
 	var temp_id := str(auth.create_profile("Temp", "secret").get("id", ""))
 	mail_manager.save_path = auth.get_profile_save_path(temp_id)
@@ -1246,6 +1248,334 @@ func _test_auth_screens() -> Array[String]:
 	_remove_file(profiles_path)
 	_remove_directory(save_dir)
 	return failures
+
+
+func _test_commission_editor() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_edit_%d" % Time.get_ticks_usec()
+	var source_path := "%s_source.json" % base
+	var draft_path := "%s_draft.json" % base
+	var save_dir := "%s_saves" % base
+	var auth = load("res://managers/auth_manager.gd").new()
+	auth.profiles_path = "%s_profiles.json" % base
+	auth.profile_save_dir = save_dir
+	auth.legacy_save_path = "%s_legacy.json" % base
+	add_child(auth)
+	var sync = load("res://managers/sync_manager.gd").new()
+	sync.local_path = source_path
+	sync.cache_path = "%s_cache.json" % base
+	var editor = load("res://managers/commission_editor.gd").new()
+	editor.auth_manager = auth
+	editor.sync_manager = sync
+	editor.draft_path = draft_path
+	var now := 1792454400
+
+	_write_json(source_path, {
+		"version": 3,
+		"updated_at": 10,
+		"commissions": [
+			{
+				"id": "comm-2026-001",
+				"title": "Affiche",
+				"type": "affiche",
+				"duration": null,
+				"client": "Brasserie",
+				"sender": "camille@brasserie.example",
+				"description": "Affiche maritime.",
+				"mail_request": "Merci pour l'affiche.",
+				"mail_success": "Merci.",
+				"mail_failure": "Trop tard.",
+			},
+			{
+				"id": "comm-2026-002",
+				"title": "Croquis",
+				"type": "croquis",
+				"duration": 90,
+				"client": "Léa",
+				"sender": "lea@example.com",
+				"description": "Croquis de personnage.",
+				"mail_request": "Merci pour le croquis.",
+				"mail_success": "Merci.",
+				"mail_failure": "Trop tard.",
+			},
+		],
+	})
+
+	var loaded: Dictionary = editor.load_document()
+	if not bool(loaded.get("ok", false)):
+		failures.append("editor: a valid source was not loaded (%s)" % str(loaded.get("error", "")))
+	var document: Dictionary = loaded.get("document", {})
+	if document.get("clients", []).size() != 2:
+		failures.append("editor: existing clients were not migrated")
+	if document.get("types", []).size() != 2:
+		failures.append("editor: existing types were not migrated")
+	var croquis_type := _editor_find(document.get("types", []), "name", "croquis")
+	if int(croquis_type.get("duration_minutes", 0)) != 120:
+		failures.append("editor: the type duration did not come from the type defaults")
+	for commission in document.get("commissions", []):
+		if str(commission.get("client_id", "")) == "" or str(commission.get("type_id", "")) == "":
+			failures.append("editor: a migrated commission has no reference")
+
+	if bool(editor.add_client("Studio Neuf", "neuf@example.com").get("ok", false)):
+		failures.append("editor: a mutation without an admin session was accepted")
+
+	auth.authenticate(str(auth.get_profiles()[0]["id"]), "admin")
+	var client_result: Dictionary = editor.add_client("Studio Neuf", "neuf@example.com")
+	if not bool(client_result.get("ok", false)):
+		failures.append("editor: a valid client was refused")
+	var client_id := str(client_result.get("id", ""))
+	if bool(editor.add_client("studio neuf", "").get("ok", false)):
+		failures.append("editor: a duplicate client name was accepted")
+	if bool(editor.add_type("peinture", "0").get("ok", false)):
+		failures.append("editor: a type without a positive duration was accepted")
+	var type_result: Dictionary = editor.add_type("peinture", "600")
+	if not bool(type_result.get("ok", false)):
+		failures.append("editor: a valid type was refused")
+	var type_id := str(type_result.get("id", ""))
+
+	var form := {
+		"title": "Portrait",
+		"client_id": client_id,
+		"type_id": type_id,
+		"duration": "",
+		"description": "Portrait à l'huile.",
+		"mail_request": "Merci de peindre ce portrait.",
+		"mail_success": "Merci.",
+		"mail_failure": "Trop tard.",
+	}
+	var missing_request := form.duplicate(true)
+	missing_request["mail_request"] = ""
+	if bool(editor.add_commission(missing_request).get("ok", false)):
+		failures.append("editor: a commission without a request message was accepted")
+	var commission_result: Dictionary = editor.add_commission(form)
+	if not bool(commission_result.get("ok", false)):
+		failures.append("editor: a valid commission was refused")
+	var commission_id := str(commission_result.get("id", ""))
+	var stored_commission := _editor_find(editor.document.get("commissions", []), "id", commission_id)
+	if int(stored_commission.get("duration", 0)) != 600:
+		failures.append("editor: the type default duration was not applied")
+	if str(stored_commission.get("sender", "")) != "neuf@example.com":
+		failures.append("editor: the client email was not copied to the sender")
+	var override_form := form.duplicate(true)
+	override_form["title"] = "Portrait rapide"
+	override_form["duration"] = "45"
+	var override_result: Dictionary = editor.add_commission(override_form)
+	if not bool(override_result.get("ok", false)):
+		failures.append("editor: a commission with a duration override was refused")
+	var override_stored := _editor_find(
+		editor.document.get("commissions", []), "id", str(override_result.get("id", ""))
+	)
+	if int(override_stored.get("duration", 0)) != 45:
+		failures.append("editor: the duration override was not applied")
+
+	if bool(editor.remove_client(client_id).get("ok", false)):
+		failures.append("editor: a client used by a commission was deleted")
+	if bool(editor.remove_type(type_id).get("ok", false)):
+		failures.append("editor: a type used by a commission was deleted")
+	var free_client := str(editor.add_client("Client libre", "").get("id", ""))
+	if not bool(editor.remove_client(free_client).get("ok", false)):
+		failures.append("editor: an unused client was not deleted")
+
+	if not FileAccess.file_exists(draft_path):
+		failures.append("editor: the pending draft was not written")
+	var source_before = JSON.parse_string(FileAccess.get_file_as_string(source_path))
+	if source_before is Dictionary:
+		if int(source_before.get("version", 0)) != 3 or source_before.get("clients") != null:
+			failures.append("editor: the published source was modified before publishing")
+
+	var pushed: Dictionary = editor.push(now)
+	if not bool(pushed.get("ok", false)):
+		failures.append("editor: publishing failed (%s)" % str(pushed.get("error", "")))
+	var published = JSON.parse_string(FileAccess.get_file_as_string(source_path))
+	if not (published is Dictionary):
+		failures.append("editor: the published source is unreadable")
+	else:
+		if int(published.get("version", 0)) != 4:
+			failures.append("editor: the published version was not bumped")
+		if int(published.get("updated_at", 0)) != now:
+			failures.append("editor: the published timestamp was not set")
+		if not (published.get("clients") is Array) or published["clients"].size() != 3:
+			failures.append("editor: the published clients are wrong")
+		if not (published.get("types") is Array) or published["types"].size() != 3:
+			failures.append("editor: the published types are wrong")
+		if not (published.get("commissions") is Array) or published["commissions"].size() != 4:
+			failures.append("editor: the published commissions are wrong")
+		var published_commission := _editor_find(published.get("commissions", []), "id", commission_id)
+		if str(published_commission.get("client", "")) != "Studio Neuf":
+			failures.append("editor: the client name was not denormalised")
+		if str(published_commission.get("type", "")) != "peinture":
+			failures.append("editor: the type name was not denormalised")
+		if int(published_commission.get("duration", 0)) != 600:
+			failures.append("editor: the effective duration was not published")
+
+	var bad_path := "%s_bad.json" % base
+	var bad_file := FileAccess.open(bad_path, FileAccess.WRITE)
+	bad_file.store_string("not json")
+	bad_file.close()
+	sync.local_path = bad_path
+	if bool(editor.push(now).get("ok", false)):
+		failures.append("editor: an unreadable source was overwritten")
+	if FileAccess.get_file_as_string(bad_path) != "not json":
+		failures.append("editor: an unreadable source was modified")
+
+	var bad_draft := "%s_bad_draft.json" % base
+	var bad_draft_file := FileAccess.open(bad_draft, FileAccess.WRITE)
+	bad_draft_file.store_string("not json")
+	bad_draft_file.close()
+	editor.draft_path = bad_draft
+	if bool(editor.load_document().get("ok", false)):
+		failures.append("editor: an unreadable draft was loaded")
+
+	var fresh_source := "%s_fresh.json" % base
+	var fresh = load("res://managers/commission_editor.gd").new()
+	fresh.auth_manager = auth
+	fresh.sync_manager = sync
+	fresh.draft_path = "%s_fresh_draft.json" % base
+	sync.local_path = fresh_source
+	if not bool(fresh.load_document().get("ok", false)):
+		failures.append("editor: a missing source was not loaded as empty")
+	if not bool(fresh.push(now).get("ok", false)):
+		failures.append("editor: publishing to a missing source failed")
+	var fresh_payload = JSON.parse_string(FileAccess.get_file_as_string(fresh_source))
+	if fresh_payload is Dictionary and int(fresh_payload.get("version", 0)) != 1:
+		failures.append("editor: a new source does not start at version 1")
+
+	auth.free()
+	editor.free()
+	fresh.free()
+	sync.free()
+	_remove_directory(save_dir)
+	for path in [
+		source_path,
+		draft_path,
+		bad_path,
+		bad_draft,
+		fresh_source,
+		"%s_fresh_draft.json" % base,
+		"%s_profiles.json" % base,
+		"%s_cache.json" % base,
+	]:
+		_remove_file(path)
+	return failures
+
+
+func _test_editor_sync() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_edit_sync_%d" % Time.get_ticks_usec()
+	var save_path := "%s_save.json" % base
+	var cache_path := "%s_cache.json" % base
+	var source_path := "%s_source.json" % base
+	var draft_path := "%s_draft.json" % base
+	var save_dir := "%s_saves" % base
+	var now := 1792454400
+	_write_json(source_path, {
+		"version": 1,
+		"updated_at": 0,
+		"commissions": [
+			{
+				"id": "comm-2026-010",
+				"title": "Affiche existante",
+				"type": "affiche",
+				"duration": null,
+				"client": "Client existant",
+				"sender": "existant@example.com",
+				"description": "Déjà publiée.",
+				"mail_request": "Merci pour cette affiche.",
+				"mail_success": "Merci.",
+				"mail_failure": "Trop tard.",
+			},
+		],
+	})
+	var isolated := _make_isolated_managers(save_path)
+	var mail_manager = isolated["mail_manager"]
+	var commission_manager = isolated["commission_manager"]
+	var sync = load("res://managers/sync_manager.gd").new()
+	sync.local_path = source_path
+	sync.cache_path = cache_path
+	sync.commission_manager = commission_manager
+	var auth = load("res://managers/auth_manager.gd").new()
+	auth.profiles_path = "%s_profiles.json" % base
+	auth.profile_save_dir = save_dir
+	auth.legacy_save_path = "%s_legacy.json" % base
+	add_child(auth)
+	var editor = load("res://managers/commission_editor.gd").new()
+	editor.auth_manager = auth
+	editor.sync_manager = sync
+	editor.draft_path = draft_path
+	auth.authenticate(str(auth.get_profiles()[0]["id"]), "admin")
+
+	if not bool(editor.load_document().get("ok", false)):
+		failures.append("editor+sync: the source was not loaded")
+	sync.fetch()
+	if _count_offer_mails(mail_manager) != 1:
+		failures.append("editor+sync: the existing commission was not offered")
+
+	var client_id := str(editor.add_client("Studio Neuf", "neuf@example.com").get("id", ""))
+	var type_id := str(editor.add_type("peinture", "600").get("id", ""))
+	var commission_result: Dictionary = editor.add_commission({
+		"title": "Portrait",
+		"client_id": client_id,
+		"type_id": type_id,
+		"duration": "",
+		"description": "Portrait à l'huile.",
+		"mail_request": "Merci de peindre ce portrait.",
+		"mail_success": "Merci.",
+		"mail_failure": "Trop tard.",
+	})
+	if not bool(commission_result.get("ok", false)):
+		failures.append("editor+sync: the commission was not created")
+	var pushed: Dictionary = editor.push(now)
+	if not bool(pushed.get("ok", false)):
+		failures.append("editor+sync: publishing failed (%s)" % str(pushed.get("error", "")))
+	sync.fetch()
+	if _count_offer_mails(mail_manager) != 2:
+		failures.append("editor+sync: the published commission did not become one offer")
+	var commission_id := str(commission_result.get("id", ""))
+	var offer: Dictionary = mail_manager.get_mail("offre_%s" % commission_id)
+	if offer.is_empty():
+		failures.append("editor+sync: the offer mail is missing")
+	elif int(offer.get("commission", {}).get("duration", 0)) != 600:
+		failures.append("editor+sync: the offer carries no effective duration")
+	sync.fetch()
+	if _count_offer_mails(mail_manager) != 2:
+		failures.append("editor+sync: a second sync duplicated the offers")
+
+	editor.remove_commission("comm-2026-010")
+	editor.push(now)
+	sync.fetch()
+	if _count_offer_mails(mail_manager) != 2:
+		failures.append("editor+sync: a deletion changed the received offers")
+
+	auth.free()
+	editor.free()
+	sync.free()
+	mail_manager.free()
+	commission_manager.free()
+	_remove_directory(save_dir)
+	for path in [
+		save_path,
+		cache_path,
+		source_path,
+		draft_path,
+		"%s_profiles.json" % base,
+	]:
+		_remove_file(path)
+	return failures
+
+
+func _editor_find(elements: Array, key: String, value: String) -> Dictionary:
+	for element in elements:
+		if element is Dictionary and str(element.get(key, "")) == value:
+			return element
+	return {}
+
+
+func _count_offer_mails(mail_manager) -> int:
+	var count := 0
+	for mail in mail_manager.get_mails(true):
+		if str(mail.get("type", "")) == "commission_offer":
+			count += 1
+	return count
 
 
 func _make_isolated_managers(save_path: String) -> Dictionary:

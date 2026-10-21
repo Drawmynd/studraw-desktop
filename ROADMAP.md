@@ -147,12 +147,19 @@ No per-behaviour splits.
 - Done when: a new profile starts with an empty state, the admin finds its migrated state, and the
   dev tools appear only after an admin login.
 
-### M6b — Commission editor
-- `CommissionEditor`: validates a commission and appends it to `SyncManager.local_path`, bumps the
-  payload `version` and `updated_at`, refuses to overwrite an unreadable payload.
-- `CommissionEditorController`: form (title, client, sender, type, duration override, description,
-  request / success / failure mails), admin session required, sync right after a write.
-- Done when: an admin adds a commission and it arrives as exactly one offer mail.
+### M6b — Source editor (clients, types, commissions)
+- `CommissionEditor`: loads a working document from a pending draft (`user://pending_commissions.json`)
+  or, when no draft exists, from `SyncManager.local_path`, migrating the flat commissions into reusable
+  clients (name, email) and types (name, default duration). CRUD for the three families, each guarded by
+  the admin session and persisted to the draft after every change; a commission cannot be saved without
+  a valid client and type, and a client or type used by a commission cannot be deleted.
+- "Valider et publier" writes the whole document to `SyncManager.local_path` (clients, types,
+  commissions), bumps `version` and `updated_at`, refuses an unreadable source, then syncs. Deletions
+  therefore reach new receivers only: an already-seen commission is never removed by the merge.
+- Published commissions stay denormalised (`client`, `sender`, `type`, effective `duration`) so the
+  receivers keep working without reading the new element lists.
+- Done when: an admin creates, edits and deletes clients, types and commissions, publishes to the
+  source, and a new commission arrives as exactly one offer mail.
 
 ### M7 — Dev publish
 - `SyncManager.push()`: `git add` / `commit` / `push` via `OS.execute`, using the clone
@@ -190,8 +197,12 @@ No per-behaviour splits.
   `save.json` is copied once into the admin profile.
 - `T-AUTH-DSK` (interaction, auth + screens): login screen flow, desktop dev buttons only in an
   admin session, deletion from the dev console with the admin password.
-- `T-EDIT` (system, `CommissionEditor`): validation, append, version bump, refusals.
-- `T-EDIT-SYNC` (interaction, editor + sync): a written commission becomes exactly one offer mail.
+- `T-EDIT` (system, `CommissionEditor`): migration of flat commissions into clients and types, CRUD
+  refusals (duplicates, invalid duration, referenced client/type), draft kept apart from the source,
+  publish (version bump, timestamp, denormalised fields, unreadable source refused), missing source,
+  unreadable draft.
+- `T-EDIT-SYNC` (interaction, editor + sync): a published commission becomes exactly one offer mail,
+  a second sync duplicates nothing, and a published deletion leaves the already-received offers intact.
 - `CommissionManager.accept`: `deadline == accepted_at + duration_minutes * 60` (override or type default).
 - Expiry → status `failed` + exactly one failure mail.
 - Sync merge: only unknown ids produce a "new commission" mail; version guard and cache.

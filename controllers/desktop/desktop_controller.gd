@@ -6,6 +6,9 @@ const COMMISSIONS_APP_SCENE: PackedScene = preload(
 	"res://controllers/commissions/commissions_app_controller.tscn"
 )
 const DEV_CONSOLE_SCENE: PackedScene = preload("res://controllers/dev/dev_console_controller.tscn")
+const EDITOR_SCENE: PackedScene = preload(
+	"res://controllers/editor/commission_editor_controller.tscn"
+)
 const PROFILE_APP_SCENE: PackedScene = preload("res://controllers/profile/profile_controller.tscn")
 const LOGIN_SCENE := "res://controllers/login/login_controller.tscn"
 const WIFI_INDICATOR_SCRIPT := preload("res://components/wifi/wifi_indicator.gd")
@@ -21,6 +24,7 @@ const NOTIFICATION_DURATION := 6.0
 @onready var wifi_indicator: Control = %WifiIndicator
 @onready var mail_button: Button = %MailButton
 @onready var commissions_button: Button = %CommissionsButton
+@onready var editor_button: Button = %EditorButton
 @onready var dev_button: Button = %DevButton
 @onready var profile_button: Button = %ProfileButton
 @onready var logout_button: Button = %LogoutButton
@@ -44,6 +48,7 @@ func _ready() -> void:
 	ClockManager.second_tick.connect(_update_clock)
 	mail_button.pressed.connect(_open_mail_app)
 	commissions_button.pressed.connect(_open_commissions_app)
+	editor_button.pressed.connect(_open_commission_editor)
 	dev_button.pressed.connect(_open_dev_console)
 	profile_button.pressed.connect(_open_profile_app)
 	logout_button.pressed.connect(_on_logout_pressed)
@@ -75,6 +80,7 @@ func _apply_palette() -> void:
 	taskbar.add_theme_stylebox_override("panel", taskbar_style)
 	_style_app_button(mail_button)
 	_style_app_button(commissions_button)
+	_style_app_button(editor_button)
 	_style_app_button(dev_button)
 	_style_app_button(profile_button)
 	_style_app_button(logout_button)
@@ -134,6 +140,12 @@ func _open_commissions_app() -> void:
 	open_window("Commandes", COMMISSIONS_APP_SCENE.instantiate())
 
 
+func _open_commission_editor() -> void:
+	var window: WindowComponent = open_window("Éditeur", EDITOR_SCENE.instantiate())
+	window.size = Vector2(880, 600)
+	window.clamp_into_work_area()
+
+
 func _open_dev_console() -> void:
 	var console = DEV_CONSOLE_SCENE.instantiate()
 	console.desktop = self
@@ -153,6 +165,7 @@ func _open_profile_app() -> void:
 func _update_admin_visibility() -> void:
 	var is_admin: bool = auth_manager != null and auth_manager.is_dev_session()
 	dev_button.visible = is_admin
+	editor_button.visible = is_admin
 
 
 func _on_session_changed(_authenticated: bool, _is_admin: bool) -> void:
