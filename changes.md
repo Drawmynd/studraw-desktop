@@ -516,3 +516,30 @@ Out of scope (deliberate): commission editor (M6b), session persistence across l
 recovery, deleting a profile while its save is in use by another screen, per-profile window layout.
 
 Invalidated docs pages: none.
+
+## 2026-10-21 — Window content never overflows
+
+A window's content now lives in a `ScrollContainer` (`components/window/window_component.tscn`, node
+`ContentScroll`) instead of being added straight into the margin container. The scroll container is the hard
+crop: it never propagates the content's minimum size to the window, so the panel and title bar can no longer
+be pushed past the window's rect. Vertical scrolling is automatic, horizontal scrolling is never offered
+(`SHOW_NEVER`, the content is clipped instead), and the scroll container clips its children.
+
+`WindowComponent.setup()` (`components/window/window_component.gd`) now forces `SIZE_EXPAND_FILL` on the
+content, switches every `Label` still in `AUTOWRAP_OFF` to `AUTOWRAP_WORD_SMART` (recursively), and watches
+`Container.child_entered_tree` so labels added later (mail rows, commission rows, console entries) get the
+same wrapping. Wrapping keeps the content's minimum width down to its longest word, which is what makes the
+horizontal crop and the vertical scroll work together.
+
+Files touched: `components/window/window_component.gd`, `components/window/window_component.tscn`,
+`changes.md`.
+
+Why: long commission titles and metadata, mail subjects and console lines widened the window panel beyond the
+window itself (a `Container` cannot shrink under its children's minimum size), so windows overflowed both axes
+and could not be resized down.
+
+Out of scope (deliberate): per-app scroll tuning, horizontal scrolling, wrapping `RichTextLabel`
+(false by default), resizing the window from its content.
+
+Invalidated docs pages: none.
+

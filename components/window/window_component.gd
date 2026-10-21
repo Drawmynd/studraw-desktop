@@ -28,7 +28,7 @@ const RESIZE_DIRECTIONS := {
 @onready var minimize_button: Button = %MinimizeButton
 @onready var maximize_button: Button = %MaximizeButton
 @onready var close_button: Button = %CloseButton
-@onready var content_host: MarginContainer = %ContentHost
+@onready var content_scroll: ScrollContainer = %ContentScroll
 @onready var resize_handles: Control = %ResizeHandles
 
 var is_minimized: bool = false
@@ -63,8 +63,32 @@ func _ready() -> void:
 func setup(title: String, content: Control) -> void:
 	window_title = title
 	title_label.text = title
-	if content != null:
-		content_host.add_child(content)
+	if content == null:
+		return
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_scroll.add_child(content)
+	_fit_labels(content)
+	_watch_children(content)
+
+
+func _fit_labels(node: Node) -> void:
+	if node is Label and (node as Label).autowrap_mode == TextServer.AUTOWRAP_OFF:
+		(node as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	for child in node.get_children():
+		_fit_labels(child)
+
+
+func _watch_children(node: Node) -> void:
+	if node is Container and not node.child_entered_tree.is_connected(_on_child_entered):
+		node.child_entered_tree.connect(_on_child_entered)
+	for child in node.get_children():
+		_watch_children(child)
+
+
+func _on_child_entered(node: Node) -> void:
+	_fit_labels(node)
+	_watch_children(node)
 
 
 func focus() -> void:
