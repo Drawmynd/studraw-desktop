@@ -35,6 +35,7 @@ var is_minimized: bool = false
 var is_maximized: bool = false
 
 var _title_style: StyleBoxFlat
+var _content: Control
 var _restore_rect: Rect2
 var _dragging: bool = false
 var _drag_offset: Vector2
@@ -70,11 +71,46 @@ func setup(title: String, content: Control) -> void:
 	content_scroll.add_child(content)
 	_fit_labels(content)
 	_watch_children(content)
+	_content = content
+	_sync_content_minimum()
+
+
+func _sync_content_minimum() -> void:
+	if _content == null:
+		return
+	var minimum := Vector2.ZERO
+	for child in _content.get_children():
+		if not (child is Control):
+			continue
+		var control := child as Control
+		var is_full_rect := (
+			control.anchor_left == 0.0
+			and control.anchor_top == 0.0
+			and control.anchor_right == 1.0
+			and control.anchor_bottom == 1.0
+		)
+		if not is_full_rect:
+			continue
+		var inset := Vector2(
+			maxf(control.offset_left - control.offset_right, 0.0),
+			maxf(control.offset_top - control.offset_bottom, 0.0)
+		)
+		minimum = minimum.max(control.get_combined_minimum_size() + inset)
+		if not control.minimum_size_changed.is_connected(_on_content_minimum_changed):
+			control.minimum_size_changed.connect(_on_content_minimum_changed)
+	if _content.custom_minimum_size != minimum:
+		_content.custom_minimum_size = minimum
+
+
+func _on_content_minimum_changed() -> void:
+	_sync_content_minimum()
 
 
 func _fit_labels(node: Node) -> void:
-	if node is Label and (node as Label).autowrap_mode == TextServer.AUTOWRAP_OFF:
-		(node as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if node is Label and not (node.get_parent() is HBoxContainer or node.get_parent() is GridContainer):
+		var label := node as Label
+		if label.autowrap_mode == TextServer.AUTOWRAP_OFF:
+			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	for child in node.get_children():
 		_fit_labels(child)
 
