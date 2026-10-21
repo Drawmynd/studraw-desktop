@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 ClockManager="*res://managers/clock_manager.gd"
 Palette="*res://managers/palette.gd"
+AuthManager="*res://managers/auth_manager.gd"
 MailManager="*res://managers/mail_manager.gd"
 CommissionManager="*res://managers/commission_manager.gd"
 SyncManager="*res://managers/sync_manager.gd"

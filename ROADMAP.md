@@ -22,7 +22,10 @@ The app does not draw for the player — it motivates them, like a fitness app.
   - Merge by commission id: unknown ids become offers, already seen ids never duplicate.
     A higher `version` refreshes offers that are still pending; accepted, refused and archived
     ones are left untouched. Last good payload is cached in `user://commissions_cache.json`.
-- **Dev password**: SHA-256 hash stored as a constant. Gameplay gate, not real security.
+- **Dev access**: local profiles in `user://profiles.json`, passwords stored as SHA-256 hex.
+  One `admin` profile is seeded as `admin` / `admin`, is the only admin, and can never be deleted;
+  every created profile is non-admin. Passwords and pseudos are editable from the Profil app.
+  Gameplay gate, not real security.
 
 ## Out of scope
 
@@ -58,7 +61,7 @@ The app does not draw for the player — it motivates them, like a fitness app.
 `client` is the human or company commissioning the work; `sender` is the mail sender and may
 differ from the client (e.g. `prenom@entreprise.fr`). Mails carry a `sender` field.
 
-`user://save.json` (player state, never shared):
+`user://profiles/<id>/save.json` (player state, one file per profile, never shared):
 
     { "mails": [ { "id": "...", "sender": "...", "subject": "...", "body": "...",
                    "read": false, "archived": false, "type": "commission_offer",
@@ -68,6 +71,16 @@ differ from the client (e.g. `prenom@entreprise.fr`). Mails carry a `sender` fie
       "refused": [ "uuid" ],
       "seen_commissions": [ "uuid" ] }
 
+`user://profiles.json` (profiles and passwords, machine local):
+
+    { "version": 1,
+      "profiles": [ { "id": "prof_<unixtime>_<hex4>", "pseudo": "admin",
+                      "password_hash": "<sha256 hex>", "is_admin": true,
+                      "created_at": 0, "updated_at": 0 } ] }
+
+The legacy `user://save.json` is copied once into the admin profile save so the existing state
+survives the switch to per-profile saves.
+
 `user://sync_config.json` (player machine): sync source, see Fixed decisions.
 `user://commissions_cache.json`: last successfully fetched payload.
 `user://dev_config.json` (dev machine only): path to the local git clone.
@@ -75,6 +88,14 @@ differ from the client (e.g. `prenom@entreprise.fr`). Mails carry a `sender` fie
 ## Milestones
 
 Each milestone is one logical change / one commit.
+
+M6 was split into `M6a` and `M6b`: planning added a multi-profile Profil app, a login screen and
+per-profile saves, which is more than the original "constant hash dev account + editor". `M6a` is
+itself documented as two commits (data and session, then screens) because the auth data layer and
+its screens are two logical changes.
+
+Tests follow one rule: one test per durable system, plus one test per inter-system interaction.
+No per-behaviour splits.
 
 ### M1 — Project setup
 - Switch `project.godot` to Desktop, 1280x720 window, register autoloads.
@@ -115,11 +136,23 @@ Each milestone is one logical change / one commit.
 - Done when: a commission added to the source shows up as a single mail, and editing a pending
   commission with a higher `version` updates it without creating a second mail.
 
-### M6 — Dev account + editor
-- `AuthManager`: SHA-256 constant, `verify()`, `is_dev_session`.
-- `DevConsoleController`: login, commission form (title, type, duration override,
-  description, mail request, mail success, mail failure), writes `data/commissions.json`.
-- Done when: correct password unlocks the editor and a new commission is written to disk.
+### M6a — Profiles and admin session
+- `AuthManager`: local profiles, one seeded `admin` / `admin` profile, SHA-256 passwords, create,
+  connect, logout, change pseudo / password, delete. Deleting the only admin is refused; the dev
+  console deletes another profile with the admin password as confirmation.
+- Login screen at startup: profile list, connect, create, delete.
+- Per-profile player state, the legacy `user://save.json` migrating once into the admin profile.
+- Desktop gate: Profil always visible; Console dev and Éditeur only during an admin session.
+- Documented as two commits: data and session, then screens.
+- Done when: a new profile starts with an empty state, the admin finds its migrated state, and the
+  dev tools appear only after an admin login.
+
+### M6b — Commission editor
+- `CommissionEditor`: validates a commission and appends it to `SyncManager.local_path`, bumps the
+  payload `version` and `updated_at`, refuses to overwrite an unreadable payload.
+- `CommissionEditorController`: form (title, client, sender, type, duration override, description,
+  request / success / failure mails), admin session required, sync right after a write.
+- Done when: an admin adds a commission and it arrives as exactly one offer mail.
 
 ### M7 — Dev publish
 - `SyncManager.push()`: `git add` / `commit` / `push` via `OS.execute`, using the clone
@@ -130,7 +163,8 @@ Each milestone is one logical change / one commit.
 ### M8 — Mail notifications and icon badges
 - Notify on every new mail (offer, success, failure, reminder), not only new commission offers.
 - Unread badge (pastille) on the Courrier app button, cleared when the mails are read.
-- Done when: a new mail shows a notification and a badge, and the badge clears once read.
+- Toast notifications coloured by type (info / success / failure), with the matching icon accent.
+- Done when: a new mail shows a coloured notification and a badge, and the badge clears once read.
 
 ### M9 — Commission delivery with an image, and a gallery app
 - Clicking a commission opens a delivery view where the player attaches an image.
@@ -149,7 +183,15 @@ Each milestone is one logical change / one commit.
 
 ## Proposed tests (to validate before writing)
 
-- `AuthManager.verify`: correct password → true, wrong → false.
+- `T-AUTH` (system, `AuthManager`): seeded admin, login, profile creation, credential change,
+  deletion with the profile password and with the admin password, last-admin guard, persistence,
+  unreadable profile file left untouched.
+- `T-AUTH-SAVE` (interaction, auth + player state): two profiles never share a save, the legacy
+  `save.json` is copied once into the admin profile.
+- `T-AUTH-DSK` (interaction, auth + screens): login screen flow, desktop dev buttons only in an
+  admin session, deletion from the dev console with the admin password.
+- `T-EDIT` (system, `CommissionEditor`): validation, append, version bump, refusals.
+- `T-EDIT-SYNC` (interaction, editor + sync): a written commission becomes exactly one offer mail.
 - `CommissionManager.accept`: `deadline == accepted_at + duration_minutes * 60` (override or type default).
 - Expiry → status `failed` + exactly one failure mail.
 - Sync merge: only unknown ids produce a "new commission" mail; version guard and cache.

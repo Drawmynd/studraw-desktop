@@ -2,6 +2,9 @@
 
 ## Memories
 
+- Tests are consolidated: one test per durable system and one per inter-system interaction, never
+  several tests per system or per interaction. New behaviour extends the existing test instead of
+  adding a sibling.
 - Studraw is a drawing-motivation app (fake artist studio desktop), not a drawing tool.
   The player draws elsewhere; the app only motivates. Recording this so a later session
   does not propose adding a canvas.
@@ -410,9 +413,46 @@ Invalidated docs pages: none.
 ## 2026-10-20 — Mail notification badges and commission delivery in the roadmap
 
 `ROADMAP.md` gained two future milestones, not implemented: `M8` (notify on every new mail, unread
-badge on the Courrier app button) and `M9` (click a commission to deliver it with an attached image,
-success before the deadline and failure after it, plus a galerie app listing the delivered images).
+badge on the Courrier app button, toast notifications coloured by type) and `M9` (click a commission
+to deliver it with an attached image, success before the deadline and failure after it, plus a
+galerie app listing the delivered images).
 
 Files touched: `ROADMAP.md`, `changes.md`.
+
+Invalidated docs pages: none.
+
+## 2026-10-21 — M6a (1/2) local profiles and per-profile saves
+
+Added `managers/auth_manager.gd` (autoload `AuthManager`): local profiles persisted in
+`user://profiles.json`, SHA-256 passwords, creation, connection, logout, pseudo / password change,
+deletion with the profile password or with the admin password from the dev console, and the
+`session_changed` / `profiles_changed` signals. A single `admin` / `admin` profile is seeded
+(`is_admin: true`); every created profile is non-admin, no promotion exists, and deleting the only
+admin profile is refused by both deletion paths. A password hash never leaves the manager.
+
+Player state is now per profile: `user://profiles/<id>/save.json`, with the profile directory created
+when the profile is loaded or created. The legacy `user://save.json` is copied once into the admin
+save when the latter is absent, leaving the original untouched, so existing state survives. The sync
+source and its cache stay machine-wide.
+
+M6 was split into `M6a` (profiles, session, editor gate) and `M6b` (commission editor): planning added
+a multi-profile Profil app, a login screen and per-profile saves, beyond the original constant-hash
+dev account. `M6a` is deliberately two commits — this one holds the auth data layer and the state
+split, the next one the screens.
+
+Tests: `T-AUTH` (`AuthManager`: seed, login, creation validations, credential change and persistence,
+deletion by profile and by admin password, last-admin guard, session signals, unreadable profile file
+left untouched) and `T-AUTH-SAVE` (auth + player state: no save sharing between profiles, one-shot
+legacy migration that does not duplicate on reload). 13 tests, 0 failure.
+
+Files touched: `managers/auth_manager.gd` (new), `project.godot`, `ROADMAP.md`, `tests/test_scene.gd`,
+`changes.md`.
+
+Why: the player state must stop being shared before profiles become a login gate, and the auth layer
+has to be testable without any screen.
+
+Out of scope (deliberate): login screen, Profil app, desktop gate and admin deletion UI (M6a second
+commit); commission editor (M6b); password recovery or reset, profile promotion, session persistence
+across launches, password salting, orphan save purge.
 
 Invalidated docs pages: none.

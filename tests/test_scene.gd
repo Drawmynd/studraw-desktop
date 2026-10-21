@@ -29,6 +29,8 @@ func _run() -> void:
 	results["T-SYNC-MAIL"] = await _test_sync_mail_offers()
 	results["T-CHEAT-SYNC"] = await _test_cheat_sync()
 	results["T-WIFI"] = await _test_wifi_indicator()
+	results["T-AUTH"] = await _test_auth_manager()
+	results["T-AUTH-SAVE"] = await _test_auth_profile_saves()
 	results["T-PAL"] = _test_palette()
 	var failure_count := 0
 	for test_name in results:
@@ -831,6 +833,205 @@ func _test_wifi_indicator() -> Array[String]:
 	return failures
 
 
+func _test_auth_manager() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_auth_%d" % Time.get_ticks_usec()
+	var profiles_path := "%s_profiles.json" % base
+	var save_dir := "%s_saves" % base
+	var auth = load("res://managers/auth_manager.gd").new()
+	auth.profiles_path = profiles_path
+	auth.profile_save_dir = save_dir
+	auth.legacy_save_path = "%s_legacy.json" % base
+	add_child(auth)
+
+	var profiles: Array[Dictionary] = auth.get_profiles()
+	if profiles.size() != 1:
+		failures.append("seed: expected 1 profile, got %d" % profiles.size())
+	var admin_id: String = str(profiles[0]["id"]) if not profiles.is_empty() else ""
+	if not bool(profiles[0]["is_admin"]):
+		failures.append("seed: admin profile is not flagged as admin")
+	if profiles[0].has("password_hash"):
+		failures.append("profiles: the password hash is exposed")
+	if not auth.verify(admin_id, "admin"):
+		failures.append("seed: the default password is rejected")
+	if auth.verify(admin_id, "wrong"):
+		failures.append("seed: a wrong password is accepted")
+
+	var session_events := {"value": 0}
+	auth.session_changed.connect(func(_authenticated: bool, _admin: bool) -> void:
+		session_events["value"] += 1)
+
+	if auth.create_profile("Alice", "abc").get("ok", false):
+		failures.append("create: a short password was accepted")
+	if auth.create_profile("", "secret").get("ok", false):
+		failures.append("create: an empty pseudo was accepted")
+	var created: Dictionary = auth.create_profile("Alice", "secret")
+	if not bool(created.get("ok", false)):
+		failures.append("create: a valid profile was rejected (%s)" % created.get("error", ""))
+	var alice_id := str(created.get("id", ""))
+	if auth.create_profile("alice", "secret").get("ok", false):
+		failures.append("create: a duplicate pseudo was accepted")
+	if auth.get_profiles().size() != 2:
+		failures.append("create: expected 2 profiles")
+
+	if not auth.authenticate(alice_id, "secret"):
+		failures.append("login: a valid password was rejected")
+	if auth.is_dev_session():
+		failures.append("login: a standard profile is an admin session")
+	if str(auth.get_current_profile().get("pseudo", "")) != "Alice":
+		failures.append("login: the current profile is wrong")
+	if auth.authenticate(alice_id, "wrong"):
+		failures.append("login: a wrong password was accepted")
+	if str(auth.get_current_profile().get("id", "")) != alice_id:
+		failures.append("login: a failed attempt dropped the session")
+
+	if auth.change_credentials(alice_id, "wrong", "Bobby", "secret2").get("ok", false):
+		failures.append("credentials: a wrong current password was accepted")
+	var changed: Dictionary = auth.change_credentials(alice_id, "secret", "Bobby", "secret2")
+	if not bool(changed.get("ok", false)):
+		failures.append("credentials: a valid change was rejected (%s)" % changed.get("error", ""))
+	if auth.verify(alice_id, "secret"):
+		failures.append("credentials: the old password still works")
+	if not auth.verify(alice_id, "secret2"):
+		failures.append("credentials: the new password does not work")
+	if str(auth.get_profile(alice_id).get("pseudo", "")) != "Bobby":
+		failures.append("credentials: the pseudo was not changed")
+	if auth.get_profile(alice_id).get("password_hash") != null:
+		failures.append("credentials: the hash leaks through get_profile")
+	if not FileAccess.get_file_as_string(profiles_path).contains("Bobby"):
+		failures.append("credentials: the change was not persisted")
+
+	if auth.delete_profile(alice_id, "wrong").get("ok", false):
+		failures.append("delete: a wrong password was accepted")
+	if not auth.delete_profile(alice_id, "secret2").get("ok", false):
+		failures.append("delete: a valid password was rejected")
+	if auth.get_profiles().size() != 1:
+		failures.append("delete: the profile was not removed")
+	if FileAccess.file_exists(auth.get_profile_save_path(alice_id)):
+		failures.append("delete: the profile save was kept")
+
+	if not auth.authenticate(admin_id, "admin"):
+		failures.append("login: the admin login failed")
+	if not auth.is_dev_session():
+		failures.append("login: the admin session is not a dev session")
+	var second: Dictionary = auth.create_profile("Carol", "secret")
+	var carol_id := str(second.get("id", ""))
+	if auth.delete_profile_as_admin(carol_id, "wrong").get("ok", false):
+		failures.append("admin delete: a wrong admin password was accepted")
+	if not auth.delete_profile_as_admin(carol_id, "admin").get("ok", false):
+		failures.append("admin delete: a valid admin password was rejected")
+	if auth.delete_profile(admin_id, "admin").get("ok", false):
+		failures.append("delete: the last admin profile was removed")
+	if auth.delete_profile_as_admin(admin_id, "admin").get("ok", false):
+		failures.append("admin delete: the last admin profile was removed")
+
+	auth.logout()
+	if auth.is_authenticated() or auth.is_dev_session():
+		failures.append("logout: the session is still open")
+	if session_events["value"] != 4:
+		failures.append("session: expected 4 signals, got %d" % session_events["value"])
+	auth.queue_free()
+
+	var corrupt_path := "%s_corrupt.json" % base
+	var corrupt := FileAccess.open(corrupt_path, FileAccess.WRITE)
+	if corrupt != null:
+		corrupt.store_string("not json")
+		corrupt.close()
+	var broken = load("res://managers/auth_manager.gd").new()
+	broken.profiles_path = corrupt_path
+	broken.profile_save_dir = save_dir
+	broken.legacy_save_path = "%s_legacy.json" % base
+	add_child(broken)
+	if broken.get_profiles().size() != 1:
+		failures.append("corrupt: no fallback admin profile")
+	if FileAccess.get_file_as_string(corrupt_path) != "not json":
+		failures.append("corrupt: the profile file was overwritten")
+	broken.queue_free()
+
+	await get_tree().process_frame
+	_remove_file(profiles_path)
+	_remove_file(corrupt_path)
+	_remove_directory(save_dir)
+	return failures
+
+
+func _test_auth_profile_saves() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_auth_save_%d" % Time.get_ticks_usec()
+	var profiles_path := "%s_profiles.json" % base
+	var save_dir := "%s_saves" % base
+	var legacy_path := "%s_legacy.json" % base
+	var auth = load("res://managers/auth_manager.gd").new()
+	auth.profiles_path = profiles_path
+	auth.profile_save_dir = save_dir
+	auth.legacy_save_path = legacy_path
+	add_child(auth)
+
+	var admin_id := str(auth.get_profiles()[0]["id"])
+	var alice_id := str(auth.create_profile("Alice", "secret").get("id", ""))
+	var admin_save: String = auth.get_profile_save_path(admin_id)
+	var alice_save: String = auth.get_profile_save_path(alice_id)
+	if admin_save == alice_save:
+		failures.append("saves: two profiles share the same save path")
+
+	var admin_mails = load("res://managers/mail_manager.gd").new()
+	admin_mails.save_path = admin_save
+	admin_mails.load_state()
+	admin_mails.add_mail({"id": "mail_admin", "sender": "admin@test.example", "subject": "A", "body": "A"})
+	var alice_mails = load("res://managers/mail_manager.gd").new()
+	alice_mails.save_path = alice_save
+	alice_mails.load_state()
+	if not alice_mails.get_mail("mail_admin").is_empty():
+		failures.append("saves: a mail leaked into another profile")
+	alice_mails.add_mail({"id": "mail_alice", "sender": "alice@test.example", "subject": "B", "body": "B"})
+	var admin_reloaded = load("res://managers/mail_manager.gd").new()
+	admin_reloaded.save_path = admin_save
+	admin_reloaded.load_state()
+	if admin_reloaded.get_mail("mail_admin").is_empty():
+		failures.append("saves: the admin mail was not persisted")
+	if not admin_reloaded.get_mail("mail_alice").is_empty():
+		failures.append("saves: the admin save contains another profile's mail")
+	admin_mails.free()
+	alice_mails.free()
+	admin_reloaded.free()
+
+	_write_json(legacy_path, {
+		"mails": [{"id": "legacy_mail", "sender": "legacy@test.example", "subject": "L", "body": "L"}],
+	})
+	var migrated = load("res://managers/auth_manager.gd").new()
+	migrated.profiles_path = "%s_profiles_migrated.json" % base
+	migrated.profile_save_dir = "%s_saves_migrated" % base
+	migrated.legacy_save_path = legacy_path
+	add_child(migrated)
+	var migrated_save: String = migrated.get_profile_save_path(str(migrated.get_profiles()[0]["id"]))
+	if not FileAccess.file_exists(migrated_save):
+		failures.append("migration: the legacy save was not copied")
+	else:
+		var migrated_mails = load("res://managers/mail_manager.gd").new()
+		migrated_mails.save_path = migrated_save
+		migrated_mails.load_state()
+		if migrated_mails.get_mail("legacy_mail").is_empty():
+			failures.append("migration: the legacy mail is missing")
+		migrated.load_state()
+		var migrated_again = load("res://managers/mail_manager.gd").new()
+		migrated_again.save_path = migrated_save
+		migrated_again.load_state()
+		if migrated_again.get_mails(true).size() != 1:
+			failures.append("migration: the second load duplicated the state")
+		migrated_mails.free()
+		migrated_again.free()
+	migrated.queue_free()
+	auth.queue_free()
+
+	await get_tree().process_frame
+	_remove_file(profiles_path)
+	_remove_file("%s_profiles_migrated.json" % base)
+	_remove_file(legacy_path)
+	_remove_directory(save_dir)
+	_remove_directory("%s_saves_migrated" % base)
+	return failures
+
+
 func _make_isolated_managers(save_path: String) -> Dictionary:
 	var mail_manager = load("res://managers/mail_manager.gd").new()
 	mail_manager.save_path = save_path
@@ -868,6 +1069,25 @@ func _write_json(path: String, data: Dictionary) -> void:
 func _remove_file(path: String) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+func _remove_directory(path: String) -> void:
+	var absolute := ProjectSettings.globalize_path(path)
+	if not DirAccess.dir_exists_absolute(absolute):
+		return
+	var handle := DirAccess.open(absolute)
+	if handle == null:
+		return
+	handle.list_dir_begin()
+	var entry := handle.get_next()
+	while entry != "":
+		if entry != "." and entry != "..":
+			var child := path.path_join(entry)
+			_remove_directory(child)
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(child))
+		entry = handle.get_next()
+	handle.list_dir_end()
+	DirAccess.remove_absolute(absolute)
 
 
 func _count_mails(mails: Array[Dictionary], mail_id: String) -> int:
