@@ -409,6 +409,14 @@ func _test_commission_manager() -> Array[String]:
 
 func _test_sync_manager() -> Array[String]:
 	var failures: Array[String] = []
+	var defaults = load("res://managers/sync_manager.gd").new()
+	defaults.config_path = "user://test_sync_defaults_%d.json" % Time.get_ticks_usec()
+	defaults.load_config()
+	if defaults.mode != "local":
+		failures.append("defaults: the sync mode is not local")
+	if defaults.remote_url != "https://raw.githubusercontent.com/Drawmynd/studraw-desktop/main/data/commissions.json":
+		failures.append("defaults: the source address is not configured (%s)" % defaults.remote_url)
+	defaults.free()
 	var save_path := "user://test_sync_%d.json" % Time.get_ticks_usec()
 	var cache_path := "user://test_sync_cache_%d.json" % Time.get_ticks_usec()
 	var config_path := "user://test_sync_config_%d.json" % Time.get_ticks_usec()

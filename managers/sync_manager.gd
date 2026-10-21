@@ -7,6 +7,7 @@ const DEFAULT_CONFIG_PATH := "user://sync_config.json"
 const DEFAULT_CACHE_PATH := "user://commissions_cache.json"
 const DEFAULT_DEV_CONFIG_PATH := "user://dev_config.json"
 const DEFAULT_LOCAL_PATH := "res://data/commissions.json"
+const DEFAULT_REMOTE_URL := "https://raw.githubusercontent.com/Drawmynd/studraw-desktop/main/data/commissions.json"
 const DEFAULT_GIT_REMOTE := "origin"
 const DEFAULT_GIT_BRANCH := "main"
 const COMMIT_SUBJECT := "chore(data): publish commissions v%d"
@@ -22,7 +23,7 @@ var cache_path: String = DEFAULT_CACHE_PATH
 var dev_config_path: String = DEFAULT_DEV_CONFIG_PATH
 var mode: String = MODE_LOCAL
 var local_path: String = DEFAULT_LOCAL_PATH
-var remote_url: String = ""
+var remote_url: String = DEFAULT_REMOTE_URL
 var sync_interval_minutes: int = DEFAULT_INTERVAL_MINUTES
 var repo_path: String = ""
 var git_remote: String = DEFAULT_GIT_REMOTE
@@ -128,7 +129,7 @@ func apply_payload(payload: Dictionary, write_cache: bool = true) -> int:
 func load_config() -> void:
 	mode = MODE_LOCAL
 	local_path = DEFAULT_LOCAL_PATH
-	remote_url = ""
+	remote_url = DEFAULT_REMOTE_URL
 	sync_interval_minutes = DEFAULT_INTERVAL_MINUTES
 	if not FileAccess.file_exists(config_path):
 		return
@@ -138,7 +139,7 @@ func load_config() -> void:
 	var configured_mode := str(parsed.get("mode", MODE_LOCAL))
 	mode = configured_mode if configured_mode == MODE_REMOTE else MODE_LOCAL
 	local_path = str(parsed.get("local_path", DEFAULT_LOCAL_PATH))
-	remote_url = str(parsed.get("remote_url", ""))
+	remote_url = str(parsed.get("remote_url", DEFAULT_REMOTE_URL))
 	sync_interval_minutes = max(0, int(parsed.get("sync_interval_minutes", DEFAULT_INTERVAL_MINUTES)))
 
 
