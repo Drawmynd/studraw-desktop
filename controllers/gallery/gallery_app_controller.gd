@@ -18,6 +18,29 @@ const GRID_COLUMNS := 3
 @onready var viewer: TextureRect = %Viewer
 @onready var missing_label: Label = %MissingLabel
 
+@export_group("Panneaux")
+@export var list_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+@export var viewer_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+@export var frame_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+
+@export_group("Textes")
+@export var header_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var viewer_title_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var meta_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var empty_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var missing_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
+@export_group("Liste")
+@export var list_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var list_selected_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var list_selected_background_color: PaletteData.Colors = PaletteData.Colors.HOVER
+
+@export_group("Boutons")
+@export var button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+
 var commission_manager: Node
 var delivery_manager: Node
 
@@ -176,20 +199,26 @@ func _format_date(timestamp: int) -> String:
 
 
 func _apply_palette() -> void:
-	_style_panel(list_panel, Palette.MAIL_LIST_BACKGROUND)
-	_style_panel(viewer_panel, Palette.MAIL_READING_BACKGROUND)
-	_style_panel(viewer_frame, Palette.MAIL_LIST_BACKGROUND)
-	header_label.add_theme_color_override("font_color", Palette.MAIL_HEADER_TEXT)
-	viewer_title.add_theme_color_override("font_color", Palette.MAIL_HEADER_TEXT)
-	viewer_meta.add_theme_color_override("font_color", Palette.MAIL_META_TEXT)
-	empty_label.add_theme_color_override("font_color", Palette.MAIL_META_TEXT)
-	missing_label.add_theme_color_override("font_color", Palette.MAIL_META_TEXT)
-	gallery_list.add_theme_color_override("font_color", Palette.MAIL_TEXT)
-	gallery_list.add_theme_color_override("font_selected_color", Palette.MAIL_HEADER_TEXT)
-	gallery_list.add_theme_stylebox_override("panel", _make_style(Palette.MAIL_LIST_BACKGROUND))
-	gallery_list.add_theme_stylebox_override("selected", _make_style(Palette.MAIL_SELECTED_BACKGROUND))
+	_style_panel(list_panel, Palette.color(list_background_color))
+	_style_panel(viewer_panel, Palette.color(viewer_background_color))
+	_style_panel(viewer_frame, Palette.color(frame_background_color))
+	header_label.add_theme_color_override("font_color", Palette.color(header_text_color))
+	viewer_title.add_theme_color_override("font_color", Palette.color(viewer_title_text_color))
+	viewer_meta.add_theme_color_override("font_color", Palette.color(meta_text_color))
+	empty_label.add_theme_color_override("font_color", Palette.color(empty_text_color))
+	missing_label.add_theme_color_override("font_color", Palette.color(missing_text_color))
+	gallery_list.add_theme_color_override("font_color", Palette.color(list_text_color))
+	gallery_list.add_theme_color_override(
+		"font_selected_color", Palette.color(list_selected_text_color)
+	)
 	gallery_list.add_theme_stylebox_override(
-		"selected_focus", _make_style(Palette.MAIL_SELECTED_BACKGROUND)
+		"panel", _make_style(Palette.color(list_background_color))
+	)
+	gallery_list.add_theme_stylebox_override(
+		"selected", _make_style(Palette.color(list_selected_background_color))
+	)
+	gallery_list.add_theme_stylebox_override(
+		"selected_focus", _make_style(Palette.color(list_selected_background_color))
 	)
 	_style_button(view_toggle)
 
@@ -217,16 +246,22 @@ func _make_style(background_color: Color) -> StyleBoxFlat:
 
 
 func _style_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_stylebox_override("normal", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
-	button.add_theme_stylebox_override("hover", _make_button_style(Palette.APP_BUTTON_BACKGROUND_HOVER))
+	button.add_theme_color_override("font_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_hover_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_pressed_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_focus_color", Palette.color(button_text_color))
 	button.add_theme_stylebox_override(
-		"pressed", _make_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED)
+		"normal", _make_button_style(Palette.color(button_background_color))
 	)
-	button.add_theme_stylebox_override("focus", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
+	button.add_theme_stylebox_override(
+		"hover", _make_button_style(Palette.color(button_hover_color))
+	)
+	button.add_theme_stylebox_override(
+		"pressed", _make_button_style(Palette.color(button_pressed_color))
+	)
+	button.add_theme_stylebox_override(
+		"focus", _make_button_style(Palette.color(button_background_color))
+	)
 
 
 func _make_button_style(background_color: Color) -> StyleBoxFlat:

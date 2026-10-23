@@ -1,58 +1,35 @@
 extends Node
 
-const DESKTOP_BACKGROUND := Color("#212e3d")
-const TASKBAR_BACKGROUND := Color("#171a1feb")
+const PALETTE_PATH := "res://theme/palette.tres"
 const TASKBAR_BUTTON_MINIMIZED_ALPHA := 0.55
-const WINDOW_BACKGROUND := Color("#1c1f26")
-const WINDOW_BORDER := Color("#3d4759")
-const TITLE_BACKGROUND_ACTIVE := Color("#2e384a")
-const TITLE_BACKGROUND_INACTIVE := Color("#1f242e")
-const TITLE_TEXT_ACTIVE := Color("#f2f5fa")
-const TITLE_TEXT_INACTIVE := Color("#99a3b3")
-const APP_BUTTON_BACKGROUND := Color("#293345")
-const APP_BUTTON_BACKGROUND_HOVER := Color("#334054")
-const APP_BUTTON_BACKGROUND_PRESSED := Color("#3d4a61")
-const APP_BUTTON_TEXT := Color("#d9e0eb")
-const MAIL_LIST_BACKGROUND := Color("#181c22")
-const MAIL_READING_BACKGROUND := Color("#20252d")
-const MAIL_SELECTED_BACKGROUND := Color("#334054")
-const MAIL_HEADER_TEXT := Color("#f2f5fa")
-const MAIL_TEXT := Color("#d9e0eb")
-const MAIL_META_TEXT := Color("#99a3b3")
-const MAIL_UNREAD_TEXT := Color("#f0c674")
-const MAIL_DELETE_BACKGROUND := Color("#a8323f")
-const MAIL_DELETE_BACKGROUND_HOVER := Color("#c03d4c")
-const MAIL_DELETE_BACKGROUND_PRESSED := Color("#8a2833")
-const MAIL_DELETE_TEXT := Color("#f8e9eb")
-const COMMISSION_ACCEPT_BACKGROUND := Color("#2f6b46")
-const COMMISSION_ACCEPT_BACKGROUND_HOVER := Color("#3a7f55")
-const COMMISSION_ACCEPT_BACKGROUND_PRESSED := Color("#245338")
-const COMMISSION_ACCEPT_TEXT := Color("#e8f5ec")
-const COMMISSION_REFUSE_BACKGROUND := Color("#8a5a2b")
-const COMMISSION_REFUSE_BACKGROUND_HOVER := Color("#a06a34")
-const COMMISSION_REFUSE_BACKGROUND_PRESSED := Color("#714a23")
-const COMMISSION_REFUSE_TEXT := Color("#f8f0e9")
-const COMMISSION_PANEL_BACKGROUND := Color("#20252d")
-const COMMISSION_ROW_BACKGROUND := Color("#262d38")
-const COMMISSION_ROW_BORDER := Color("#3d4759")
-const COMMISSION_TEXT := Color("#d9e0eb")
-const COMMISSION_META_TEXT := Color("#99a3b3")
-const COMMISSION_DEADLINE_TEXT := Color("#f0c674")
-const WIFI_REMOTE := Color("#7ad19a")
-const WIFI_LOCAL := Color("#99a3b3")
-const WIFI_ERROR := Color("#e06c75")
-const NOTIFICATION_BACKGROUND := Color("#2e384a")
-const NOTIFICATION_BORDER := Color("#4a5870")
-const NOTIFICATION_TEXT := Color("#f2f5fa")
-const DANGER_BACKGROUND := Color("#a8323f")
-const DANGER_BACKGROUND_HOVER := Color("#c03d4c")
-const DANGER_BACKGROUND_PRESSED := Color("#8a2833")
-const DANGER_TEXT := Color("#f8e9eb")
-const STATUS_TEXT := Color("#f2f5fa")
-const STATUS_ERROR_TEXT := Color("#e06c75")
+const TASKBAR_ALPHA := 0.92
+
+var colors: PaletteData = PaletteData.new()
+var using_fallback := false
+
+
+func _ready() -> void:
+	var loaded := load_from(PALETTE_PATH)
+	using_fallback = loaded == null
+	colors = loaded if loaded != null else PaletteData.new()
+	if using_fallback:
+		push_warning("Palette: %s is unavailable, using built-in defaults" % PALETTE_PATH)
+
+
+func load_from(path: String) -> PaletteData:
+	if not ResourceLoader.exists(path):
+		return null
+	var loaded := ResourceLoader.load(path)
+	if loaded is PaletteData:
+		return loaded
+	return null
+
+
+func color(entry: PaletteData.Colors) -> Color:
+	return colors.get(PaletteData.Colors.keys()[entry].to_lower())
 
 
 func status_color(kind: String) -> Color:
 	if kind == "error":
-		return STATUS_ERROR_TEXT
-	return STATUS_TEXT
+		return colors.danger
+	return colors.text_strong

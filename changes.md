@@ -10,24 +10,32 @@
   does not propose adding a canvas.
 - `docs/` is not written unless asked. Working log is `changes.md`; phases live in
   `ROADMAP.md` at the project root.
-- Every colour lives in `managers/palette.gd` (autoload `Palette`) under a name, written as a
-  hex string (`Color("#212e3d")`, 8 digits when alpha matters). No inline colour anywhere else,
-  neither in `.gd` nor in `.tscn`: components and scenes build their `StyleBox` from the palette.
-  Add a new named hex entry instead of a literal.
+- Every colour lives in `theme/palette.tres` (a `PaletteData` resource) with its defaults in
+  `theme/palette_data.gd`; the `Palette` autoload only loads it and resolves entries. No inline
+  colour anywhere else, neither in `.gd` nor in `.tscn`: components and scenes build their
+  `StyleBox` from `Palette.color(<export>)`. Add a new named hex entry in both the enum and the
+  exports, at the end, instead of a literal.
+- The palette is capped at ten colours plus red and green. Element-specific variants are per-node
+  enum exports, not new palette entries; state colours (status, Wi-Fi, focus, unread, late) stay
+  runtime-resolved. `PaletteData.Colors` order is append-only because the enum value is what scenes
+  store.
 - MCP `godot` recovery does not need an OpenCode restart: `opencode api post
   "/api/experimental/mcp/godot/disconnect?location[directory]=<project>"` then the same with
   `connect`. The addon accepts one client only, so disconnect other directories first
   (`C:\Users\Admin`); OpenCode marks the server failed after one timed-out handshake and never
   retries on its own.
-- Planned (ROADMAP M15): make the palette editable from the editor with a custom `Resource`
-  (`class_name PaletteData` with `@export` colours) saved as `res://theme/palette.tres`, loaded by
-  the `Palette` autoload as a facade (`Palette.colors`). An `enum` + `@export` cannot edit values
-  and a full addon is unnecessary; per-node injection is deferred until runtime themes exist. A
-  bare autoload script cannot expose `@export` colours.
-- Headless tests: the `godot` CLI on this machine is 4.4.1, which cannot parse the MCP addon
-  (`MCPGameBridge` fails on the missing `Logger` base class). To run `tests/test_scene.tscn`,
-  temporarily comment out the `MCPGameBridge` autoload, run with `godot_console.exe` (the
-  `godot.exe` shim returns without output), then restore `project.godot`.
+- The palette landed as `theme/palette_data.gd` (`PaletteData`, `enum Colors` + `Color` exports),
+  `theme/palette.tres` and a facade `managers/palette.gd` (`colors`, `color(entry)`, `load_from`,
+  `using_fallback`). `Palette.colors.<name>` reads a fixed entry; `Palette.color(<export>)` is the
+  path for anything an element can choose. `TASKBAR_BUTTON_MINIMIZED_ALPHA` and `TASKBAR_ALPHA`
+  stay on the facade: they are alphas, not colours. The headless `_test_palette` guards the literal
+  scan (allowlist: the facade and the data script), the enum/exports coherence and the fallback.
+- Headless tests: run the 4.7 Steam binary
+  (`C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe`)
+  with `--headless --path <project> res://tests/test_scene.tscn`. It loads the addon without the
+  `MCPGameBridge` workaround and keeps the global class cache current, so a new `class_name` is
+  found. The winget `godot_console.exe` is 4.4.1 and cannot parse the addon; do not use it. Exit
+  code is 1 when a test fails.
 - The source editor works on a staging copy (`user://pending_commissions.json`); the published
   source (`SyncManager.local_path`) is only written by `CommissionEditor.push()`. Commissions stay
   denormalised (`client`, `sender`, `type`, effective `duration`) next to their `client_id` /
@@ -45,6 +53,36 @@
   `record_delivery()` the finished-commission path: a delivery after the deadline is accepted on a
   failed commission and flagged `delivery_late`. The gallery reads any commission carrying a
   `delivery_path`; a missing file is listed but reported as introuvable.
+
+## 2026-10-23 — Editable palette and per-element colour choices
+
+Replaced the 50-constant palette with `PaletteData`, a typed resource saved as
+`theme/palette.tres` and edited in the inspector. The palette is capped at ten colours plus red and
+green (background, surface, surface_raised, border, text, text_strong, text_muted, accent, hover,
+pressed, danger, success): the former per-surface variants that only differed by a few hex digits
+now share one entry. `PaletteData` also carries `enum Colors`, whose names mirror the exports and
+whose order is append-only because a scene stores the enum value. The `Palette` autoload became a
+facade: it loads the resource, exposes `colors`, resolves an entry with `color(entry)`, and falls
+back to the built-in defaults with a warning when the file is missing, unreadable or of another
+type; `TASKBAR_ALPHA` and `TASKBAR_BUTTON_MINIMIZED_ALPHA` stay on the facade since they are alphas.
+
+Every controller and component now exposes one `PaletteData.Colors` export per styled element — and
+per state where the palette has distinct entries — grouped in the inspector. Action buttons resolve
+their background and text from those exports; hover and pressed are derived with
+`lightened`/`darkened` because the compact palette has no per-colour state variants. State-driven
+colours (status, Wi-Fi, focused title, unread, late delivery) still resolve at runtime.
+
+Files: `theme/palette_data.gd`, `theme/palette.tres`, `managers/palette.gd`, every controller and
+component under `controllers/` and `components/`, `tests/test_scene.gd`, `ROADMAP.md`.
+
+`_test_palette` keeps one test for the system: it scans sources for literals outside the facade and
+the data script, checks that every enum entry resolves and matches the exported colour count, covers
+the missing and wrong-type fallbacks, and round-trips an edited resource through `user://`.
+
+Out of scope: in-game colour picker, live theme switching, user-created themes, per-profile
+palettes, per-node binding scripts, more than twelve colours.
+Docs invalidated: `docs/api/Palette.md`, `docs/Architecture.md` (autoload table, folder layout,
+colour convention), `docs/api/Applications.md`.
 
 ## 2026-10-23 — M9 image delivery and gallery
 

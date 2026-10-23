@@ -90,22 +90,27 @@ Phases are ordered by priority; identifiers stay stable across reordering.
 
 ### M15 — Editable palette
 
-Decision: a typed `PaletteData` Resource saved as `res://theme/palette.tres` and edited in the
-inspector. An `enum` + `@export` only selects names, and a full editor addon adds maintenance for
-one resource; both are rejected.
+Decision: one typed `PaletteData` Resource saved as `res://theme/palette.tres` and edited in the
+inspector, plus one `enum Colors` on the same class so every element picks its entry from a
+dropdown.
 
-- `PaletteData` groups colours by surface (desktop, taskbar, window, mail, commissions,
-  notifications, status) with typed `Color` exports, defaults matching the current palette.
-- Keep the `Palette` autoload as a facade: it loads the resource and exposes it as `Palette.colors`;
-  migrate `Palette.CONSTANT` reads to `Palette.colors.constant` in one sweep. Per-node injection is
-  deferred, since there is no alternate theme at runtime.
-- Editing a colour in the inspector and running the app reflects it; a missing or unreadable
-  `.tres` falls back to built-in defaults and reports the fallback.
-- Alternate themes are copies of the `.tres`; switching at runtime is not required.
-- Acceptance: every colour is editable from the inspector, no colour literal remains outside the
-  resource and its defaults, and a corrupt palette does not prevent startup.
+- The palette is capped at ten colours plus red and green: background, surface, surface_raised,
+  border, text, text_strong, text_muted, accent, hover, pressed, danger, success. Semantic variants
+  that only differed by a few hex digits share one entry.
+- `PaletteData` holds one `Color` export per entry, grouped by surface, and an `enum Colors` with
+  the same names and order. The order is append-only: reordering would silently remap the enum
+  values stored in scenes.
+- `Palette` stays a facade: it loads the resource, exposes `Palette.colors`, resolves an entry with
+  `Palette.color(entry)` and falls back to the built-in defaults when the resource is missing,
+  unreadable or of another type, reporting the fallback.
+- Every controller and component exposes one palette export per element, and per state where the
+  palette has distinct entries; coloured action buttons derive hover and pressed from their base
+  colour. State-driven colours (status, Wi-Fi, focus, unread, late) stay resolved at runtime.
+- Acceptance: every colour is editable from the inspector, every element's colour is chosen from
+  the enum in the inspector, no colour literal remains outside the resource and its defaults, and a
+  corrupt palette does not prevent startup.
 - Out of scope: in-game colour picker, live theme switching, user-created themes, per-profile
-  palettes.
+  palettes, a palette larger than twelve colours.
 
 ### M8 — Mail experience
 

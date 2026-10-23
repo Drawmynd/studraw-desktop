@@ -11,6 +11,9 @@ const GRIP_WIDTH := 28.0
 @export var min_height: float = DEFAULT_MIN_HEIGHT
 @export var max_height: float = DEFAULT_MAX_HEIGHT
 
+@export_group("Couleurs")
+@export var grip_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
 var _dragging: bool = false
 var _hovered: bool = false
 var _start_global_y: float = 0.0
@@ -31,7 +34,7 @@ func _draw() -> void:
 	var center_x := size.x * 0.5
 	var center_y := size.y * 0.5
 	var half_width := minf(GRIP_WIDTH, size.x) * 0.5
-	var color: Color = Palette.MAIL_META_TEXT
+	var color := Palette.color(grip_color)
 	color.a = 0.9 if _hovered or _dragging else 0.5
 	for offset in [-2.0, 2.0]:
 		draw_line(

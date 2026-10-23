@@ -6,6 +6,25 @@ signal delivery_requested(commission_id: String)
 @onready var commission_list: VBoxContainer = %CommissionList
 @onready var empty_label: Label = %EmptyLabel
 
+@export_group("Panneau")
+@export var panel_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+@export var empty_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
+@export_group("Lignes")
+@export var row_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var row_border_color: PaletteData.Colors = PaletteData.Colors.BORDER
+@export var title_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var meta_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var deadline_text_color: PaletteData.Colors = PaletteData.Colors.ACCENT
+@export var late_text_color: PaletteData.Colors = PaletteData.Colors.ACCENT
+@export var finished_header_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
+@export_group("Boutons")
+@export var button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+
 var commission_manager: Node
 var clock_manager: Node
 
@@ -27,14 +46,14 @@ func _ready() -> void:
 
 func _apply_palette() -> void:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.COMMISSION_PANEL_BACKGROUND
+	style.bg_color = Palette.color(panel_background_color)
 	style.set_corner_radius_all(4)
 	style.content_margin_left = 12.0
 	style.content_margin_right = 12.0
 	style.content_margin_top = 10.0
 	style.content_margin_bottom = 10.0
 	panel.add_theme_stylebox_override("panel", style)
-	empty_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
+	empty_label.add_theme_color_override("font_color", Palette.color(empty_text_color))
 
 
 func _refresh() -> void:
@@ -58,7 +77,9 @@ func _refresh() -> void:
 	if not finished.is_empty():
 		var finished_header := Label.new()
 		finished_header.text = "Terminées"
-		finished_header.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
+		finished_header.add_theme_color_override(
+			"font_color", Palette.color(finished_header_text_color)
+		)
 		finished_header.add_theme_font_size_override("font_size", 15)
 		commission_list.add_child(finished_header)
 	for commission in finished:
@@ -69,8 +90,8 @@ func _refresh() -> void:
 func _make_row(commission: Dictionary, terminal: bool) -> PanelContainer:
 	var row := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.COMMISSION_ROW_BACKGROUND
-	style.border_color = Palette.COMMISSION_ROW_BORDER
+	style.bg_color = Palette.color(row_background_color)
+	style.border_color = Palette.color(row_border_color)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(4)
 	style.content_margin_left = 10.0
@@ -83,7 +104,7 @@ func _make_row(commission: Dictionary, terminal: bool) -> PanelContainer:
 	row.add_child(box)
 	var title := Label.new()
 	title.text = str(commission["title"])
-	title.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
+	title.add_theme_color_override("font_color", Palette.color(title_text_color))
 	title.add_theme_font_size_override("font_size", 16)
 	box.add_child(title)
 	var meta := Label.new()
@@ -92,19 +113,19 @@ func _make_row(commission: Dictionary, terminal: bool) -> PanelContainer:
 		str(commission.get("type", "")),
 		_format_duration(int(commission.get("duration_minutes", 0))),
 	]
-	meta.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
+	meta.add_theme_color_override("font_color", Palette.color(meta_text_color))
 	box.add_child(meta)
 	var deadline := Label.new()
 	if terminal:
 		deadline.text = _terminal_message(commission)
 		deadline.add_theme_color_override(
 			"font_color",
-			Palette.COMMISSION_DEADLINE_TEXT
+			Palette.color(late_text_color)
 			if bool(commission.get("delivery_late", false))
-			else Palette.COMMISSION_META_TEXT
+			else Palette.color(meta_text_color)
 		)
 	else:
-		deadline.add_theme_color_override("font_color", Palette.COMMISSION_DEADLINE_TEXT)
+		deadline.add_theme_color_override("font_color", Palette.color(deadline_text_color))
 		_deadline_labels[str(commission["id"])] = deadline
 	box.add_child(deadline)
 	var actions := HBoxContainer.new()
@@ -127,16 +148,22 @@ func _on_deliver_pressed(commission_id: String) -> void:
 
 
 func _style_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_stylebox_override("normal", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
-	button.add_theme_stylebox_override("hover", _make_button_style(Palette.APP_BUTTON_BACKGROUND_HOVER))
+	button.add_theme_color_override("font_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_hover_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_pressed_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_focus_color", Palette.color(button_text_color))
 	button.add_theme_stylebox_override(
-		"pressed", _make_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED)
+		"normal", _make_button_style(Palette.color(button_background_color))
 	)
-	button.add_theme_stylebox_override("focus", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
+	button.add_theme_stylebox_override(
+		"hover", _make_button_style(Palette.color(button_hover_color))
+	)
+	button.add_theme_stylebox_override(
+		"pressed", _make_button_style(Palette.color(button_pressed_color))
+	)
+	button.add_theme_stylebox_override(
+		"focus", _make_button_style(Palette.color(button_background_color))
+	)
 
 
 func _make_button_style(background_color: Color) -> StyleBoxFlat:

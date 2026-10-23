@@ -22,6 +22,14 @@ const RESIZE_DIRECTIONS := {
 @export var taskbar_height: float = 40.0
 @export var cascade_offset: float = 24.0
 
+@export_group("Couleurs")
+@export var background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+@export var border_color: PaletteData.Colors = PaletteData.Colors.BORDER
+@export var title_active_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var title_inactive_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+@export var title_active_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var title_inactive_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
 @onready var panel: PanelContainer = %Panel
 @onready var title_bar: PanelContainer = %TitleBar
 @onready var title_label: Label = %TitleLabel
@@ -133,9 +141,16 @@ func focus() -> void:
 
 
 func set_focused(value: bool) -> void:
-	_title_style.bg_color = Palette.TITLE_BACKGROUND_ACTIVE if value else Palette.TITLE_BACKGROUND_INACTIVE
+	_title_style.bg_color = (
+		Palette.color(title_active_background_color)
+		if value
+		else Palette.color(title_inactive_background_color)
+	)
 	title_label.add_theme_color_override(
-		"font_color", Palette.TITLE_TEXT_ACTIVE if value else Palette.TITLE_TEXT_INACTIVE
+		"font_color",
+		Palette.color(title_active_text_color)
+		if value
+		else Palette.color(title_inactive_text_color)
 	)
 
 
@@ -200,8 +215,8 @@ func clamp_into_work_area() -> void:
 
 func _build_styles() -> void:
 	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Palette.WINDOW_BACKGROUND
-	panel_style.border_color = Palette.WINDOW_BORDER
+	panel_style.bg_color = Palette.color(background_color)
+	panel_style.border_color = Palette.color(border_color)
 	panel_style.set_border_width_all(1)
 	panel_style.set_corner_radius_all(CORNER_RADIUS)
 	panel.add_theme_stylebox_override("panel", panel_style)

@@ -14,6 +14,24 @@ signal delivered(commission_id: String)
 @onready var status_label: Label = %StatusLabel
 @onready var file_dialog: FileDialog = %FileDialog
 
+@export_group("Panneaux")
+@export var panel_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+@export var preview_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+
+@export_group("Textes")
+@export var title_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var meta_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var empty_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
+@export_group("Boutons")
+@export var button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var disabled_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var send_background_color: PaletteData.Colors = PaletteData.Colors.SUCCESS
+@export var send_text_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+
 var commission_manager: Node
 var delivery_manager: Node
 var commission_id: String = ""
@@ -140,11 +158,11 @@ func _show_status(message: String, kind: String) -> void:
 
 
 func _apply_palette() -> void:
-	_style_panel(panel, Palette.COMMISSION_PANEL_BACKGROUND)
-	_style_panel(preview_panel, Palette.MAIL_LIST_BACKGROUND)
-	title_label.add_theme_color_override("font_color", Palette.TITLE_TEXT_ACTIVE)
-	meta_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
-	empty_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
+	_style_panel(panel, Palette.color(panel_background_color))
+	_style_panel(preview_panel, Palette.color(preview_background_color))
+	title_label.add_theme_color_override("font_color", Palette.color(title_text_color))
+	meta_label.add_theme_color_override("font_color", Palette.color(meta_text_color))
+	empty_label.add_theme_color_override("font_color", Palette.color(empty_text_color))
 	_style_button(choose_button)
 	_style_button(clear_button)
 	_style_primary_button(send_button)
@@ -163,37 +181,41 @@ func _style_panel(target: PanelContainer, background_color: Color) -> void:
 
 
 func _style_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_disabled_color", Palette.TITLE_TEXT_INACTIVE)
-	button.add_theme_stylebox_override("normal", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
-	button.add_theme_stylebox_override("hover", _make_button_style(Palette.APP_BUTTON_BACKGROUND_HOVER))
+	button.add_theme_color_override("font_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_hover_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_pressed_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_focus_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_disabled_color", Palette.color(disabled_text_color))
 	button.add_theme_stylebox_override(
-		"pressed", _make_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED)
+		"normal", _make_button_style(Palette.color(button_background_color))
 	)
-	button.add_theme_stylebox_override("focus", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
+	button.add_theme_stylebox_override(
+		"hover", _make_button_style(Palette.color(button_hover_color))
+	)
+	button.add_theme_stylebox_override(
+		"pressed", _make_button_style(Palette.color(button_pressed_color))
+	)
+	button.add_theme_stylebox_override(
+		"focus", _make_button_style(Palette.color(button_background_color))
+	)
 
 
 func _style_primary_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.COMMISSION_ACCEPT_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.COMMISSION_ACCEPT_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.COMMISSION_ACCEPT_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.COMMISSION_ACCEPT_TEXT)
-	button.add_theme_color_override("font_disabled_color", Palette.TITLE_TEXT_INACTIVE)
+	var background_color := Palette.color(send_background_color)
+	var text_color := Palette.color(send_text_color)
+	button.add_theme_color_override("font_color", text_color)
+	button.add_theme_color_override("font_hover_color", text_color)
+	button.add_theme_color_override("font_pressed_color", text_color)
+	button.add_theme_color_override("font_focus_color", text_color)
+	button.add_theme_color_override("font_disabled_color", Palette.color(disabled_text_color))
+	button.add_theme_stylebox_override("normal", _make_button_style(background_color))
 	button.add_theme_stylebox_override(
-		"normal", _make_button_style(Palette.COMMISSION_ACCEPT_BACKGROUND)
+		"hover", _make_button_style(background_color.lightened(0.1))
 	)
 	button.add_theme_stylebox_override(
-		"hover", _make_button_style(Palette.COMMISSION_ACCEPT_BACKGROUND_HOVER)
+		"pressed", _make_button_style(background_color.darkened(0.1))
 	)
-	button.add_theme_stylebox_override(
-		"pressed", _make_button_style(Palette.COMMISSION_ACCEPT_BACKGROUND_PRESSED)
-	)
-	button.add_theme_stylebox_override(
-		"focus", _make_button_style(Palette.COMMISSION_ACCEPT_BACKGROUND)
-	)
+	button.add_theme_stylebox_override("focus", _make_button_style(background_color))
 
 
 func _make_button_style(background_color: Color) -> StyleBoxFlat:

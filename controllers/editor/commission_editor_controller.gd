@@ -35,6 +35,40 @@ const FAMILY_NEW_TEXTS := ["Nouvelle commande", "Nouveau client", "Nouveau type"
 @onready var publish_button: Button = %PublishButton
 @onready var status_label: Label = %StatusLabel
 
+@export_group("Panneaux")
+@export var list_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+@export var detail_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+
+@export_group("Textes")
+@export var label_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var detail_title_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var status_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var tab_selected_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var tab_unselected_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var tab_hovered_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var list_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var list_selected_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+
+@export_group("Liste")
+@export var list_selected_background_color: PaletteData.Colors = PaletteData.Colors.HOVER
+
+@export_group("Champs")
+@export var field_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var field_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var field_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var field_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var field_placeholder_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
+@export_group("Boutons")
+@export var button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var button_disabled_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var disabled_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var danger_background_color: PaletteData.Colors = PaletteData.Colors.DANGER
+@export var danger_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+
 var commission_editor: Node
 var sync_manager: Node
 
@@ -385,23 +419,33 @@ func _set_status(message: String, kind: String = "neutral") -> void:
 
 
 func _apply_palette() -> void:
-	_style_panel(list_panel, Palette.MAIL_LIST_BACKGROUND)
-	_style_panel(detail_panel, Palette.MAIL_READING_BACKGROUND)
+	_style_panel(list_panel, Palette.color(list_background_color))
+	_style_panel(detail_panel, Palette.color(detail_background_color))
 	for node in _all_labels(self):
-		node.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
-	detail_title.add_theme_color_override("font_color", Palette.MAIL_HEADER_TEXT)
-	status_label.add_theme_color_override("font_color", Palette.STATUS_TEXT)
-	family_bar.add_theme_color_override("font_selected_color", Palette.MAIL_HEADER_TEXT)
-	family_bar.add_theme_color_override("font_unselected_color", Palette.MAIL_META_TEXT)
-	family_bar.add_theme_color_override("font_hovered_color", Palette.MAIL_TEXT)
-	element_list.add_theme_color_override("font_color", Palette.MAIL_TEXT)
-	element_list.add_theme_color_override("font_selected_color", Palette.MAIL_HEADER_TEXT)
-	element_list.add_theme_stylebox_override("panel", _make_box_style(Palette.MAIL_LIST_BACKGROUND))
-	element_list.add_theme_stylebox_override(
-		"selected", _make_box_style(Palette.MAIL_SELECTED_BACKGROUND)
+		node.add_theme_color_override("font_color", Palette.color(label_text_color))
+	detail_title.add_theme_color_override("font_color", Palette.color(detail_title_text_color))
+	status_label.add_theme_color_override("font_color", Palette.color(status_text_color))
+	family_bar.add_theme_color_override(
+		"font_selected_color", Palette.color(tab_selected_text_color)
+	)
+	family_bar.add_theme_color_override(
+		"font_unselected_color", Palette.color(tab_unselected_text_color)
+	)
+	family_bar.add_theme_color_override(
+		"font_hovered_color", Palette.color(tab_hovered_text_color)
+	)
+	element_list.add_theme_color_override("font_color", Palette.color(list_text_color))
+	element_list.add_theme_color_override(
+		"font_selected_color", Palette.color(list_selected_text_color)
 	)
 	element_list.add_theme_stylebox_override(
-		"selected_focus", _make_box_style(Palette.MAIL_SELECTED_BACKGROUND)
+		"panel", _make_box_style(Palette.color(list_background_color))
+	)
+	element_list.add_theme_stylebox_override(
+		"selected", _make_box_style(Palette.color(list_selected_background_color))
+	)
+	element_list.add_theme_stylebox_override(
+		"selected_focus", _make_box_style(Palette.color(list_selected_background_color))
 	)
 	element_list.add_theme_stylebox_override("cursor", StyleBoxEmpty.new())
 	element_list.add_theme_stylebox_override("cursor_unfocused", StyleBoxEmpty.new())
@@ -442,42 +486,62 @@ func _style_panel(panel: PanelContainer, background_color: Color) -> void:
 
 
 func _style_field(field: Control) -> void:
-	field.add_theme_color_override("font_color", Palette.MAIL_TEXT)
-	field.add_theme_color_override("font_placeholder_color", Palette.MAIL_META_TEXT)
-	field.add_theme_stylebox_override("normal", _make_box_style(Palette.APP_BUTTON_BACKGROUND))
-	field.add_theme_stylebox_override("hover", _make_box_style(Palette.APP_BUTTON_BACKGROUND_HOVER))
-	field.add_theme_stylebox_override("pressed", _make_box_style(Palette.APP_BUTTON_BACKGROUND_PRESSED))
-	field.add_theme_stylebox_override("focus", _make_box_style(Palette.APP_BUTTON_BACKGROUND_PRESSED))
+	field.add_theme_color_override("font_color", Palette.color(field_text_color))
+	field.add_theme_color_override(
+		"font_placeholder_color", Palette.color(field_placeholder_color)
+	)
+	field.add_theme_stylebox_override(
+		"normal", _make_box_style(Palette.color(field_background_color))
+	)
+	field.add_theme_stylebox_override("hover", _make_box_style(Palette.color(field_hover_color)))
+	field.add_theme_stylebox_override(
+		"pressed", _make_box_style(Palette.color(field_pressed_color))
+	)
+	field.add_theme_stylebox_override(
+		"focus", _make_box_style(Palette.color(field_pressed_color))
+	)
 
 
 func _style_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_disabled_color", Palette.TITLE_TEXT_INACTIVE)
-	button.add_theme_stylebox_override("normal", _make_box_style(Palette.APP_BUTTON_BACKGROUND))
-	button.add_theme_stylebox_override("hover", _make_box_style(Palette.APP_BUTTON_BACKGROUND_HOVER))
-	button.add_theme_stylebox_override("pressed", _make_box_style(Palette.APP_BUTTON_BACKGROUND_PRESSED))
-	button.add_theme_stylebox_override("disabled", _make_box_style(Palette.APP_BUTTON_BACKGROUND))
-	button.add_theme_stylebox_override("focus", _make_box_style(Palette.APP_BUTTON_BACKGROUND))
+	button.add_theme_color_override("font_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_hover_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_pressed_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_focus_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_disabled_color", Palette.color(disabled_text_color))
+	button.add_theme_stylebox_override(
+		"normal", _make_box_style(Palette.color(button_background_color))
+	)
+	button.add_theme_stylebox_override(
+		"hover", _make_box_style(Palette.color(button_hover_color))
+	)
+	button.add_theme_stylebox_override(
+		"pressed", _make_box_style(Palette.color(button_pressed_color))
+	)
+	button.add_theme_stylebox_override(
+		"disabled", _make_box_style(Palette.color(button_disabled_background_color))
+	)
+	button.add_theme_stylebox_override(
+		"focus", _make_box_style(Palette.color(button_background_color))
+	)
 
 
 func _style_delete_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_color_override("font_disabled_color", Palette.TITLE_TEXT_INACTIVE)
-	button.add_theme_stylebox_override("normal", _make_box_style(Palette.MAIL_DELETE_BACKGROUND))
+	var background_color := Palette.color(danger_background_color)
+	var text_color := Palette.color(danger_text_color)
+	button.add_theme_color_override("font_color", text_color)
+	button.add_theme_color_override("font_hover_color", text_color)
+	button.add_theme_color_override("font_pressed_color", text_color)
+	button.add_theme_color_override("font_focus_color", text_color)
+	button.add_theme_color_override("font_disabled_color", Palette.color(disabled_text_color))
+	button.add_theme_stylebox_override("normal", _make_box_style(background_color))
 	button.add_theme_stylebox_override(
-		"hover", _make_box_style(Palette.MAIL_DELETE_BACKGROUND_HOVER)
+		"hover", _make_box_style(background_color.lightened(0.1))
 	)
 	button.add_theme_stylebox_override(
-		"pressed", _make_box_style(Palette.MAIL_DELETE_BACKGROUND_PRESSED)
+		"pressed", _make_box_style(background_color.darkened(0.1))
 	)
-	button.add_theme_stylebox_override("disabled", _make_box_style(Palette.MAIL_DELETE_BACKGROUND))
-	button.add_theme_stylebox_override("focus", _make_box_style(Palette.MAIL_DELETE_BACKGROUND))
+	button.add_theme_stylebox_override("disabled", _make_box_style(background_color))
+	button.add_theme_stylebox_override("focus", _make_box_style(background_color))
 
 
 func _make_box_style(background_color: Color) -> StyleBoxFlat:

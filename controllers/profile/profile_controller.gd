@@ -26,6 +26,30 @@ signal logout_requested
 @onready var delete_back_button: Button = %DeleteBackButton
 @onready var status_label: Label = %StatusLabel
 
+@export_group("Panneau")
+@export var panel_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+
+@export_group("Textes")
+@export var pseudo_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var role_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var step_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var status_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+
+@export_group("Boutons")
+@export var button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var danger_background_color: PaletteData.Colors = PaletteData.Colors.DANGER
+@export var danger_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+
+@export_group("Champs")
+@export var field_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var field_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var field_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var field_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var field_placeholder_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
 var auth_manager: Node
 
 var _pending_pseudo: String = ""
@@ -164,17 +188,17 @@ func _set_status(message: String, kind: String = "neutral") -> void:
 
 func _apply_palette() -> void:
 	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Palette.COMMISSION_PANEL_BACKGROUND
+	panel_style.bg_color = Palette.color(panel_background_color)
 	panel_style.set_corner_radius_all(4)
 	panel_style.content_margin_left = 14.0
 	panel_style.content_margin_right = 14.0
 	panel_style.content_margin_top = 12.0
 	panel_style.content_margin_bottom = 12.0
 	panel.add_theme_stylebox_override("panel", panel_style)
-	pseudo_label.add_theme_color_override("font_color", Palette.TITLE_TEXT_ACTIVE)
-	role_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
-	step_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
-	status_label.add_theme_color_override("font_color", Palette.STATUS_TEXT)
+	pseudo_label.add_theme_color_override("font_color", Palette.color(pseudo_text_color))
+	role_label.add_theme_color_override("font_color", Palette.color(role_text_color))
+	step_label.add_theme_color_override("font_color", Palette.color(step_text_color))
+	status_label.add_theme_color_override("font_color", Palette.color(status_text_color))
 	_style_button(change_button, false)
 	_style_button(logout_button, false)
 	_style_button(credentials_continue_button, false)
@@ -189,19 +213,39 @@ func _apply_palette() -> void:
 
 
 func _style_field(field: Control) -> void:
-	field.add_theme_color_override("font_color", Palette.COMMISSION_TEXT)
-	field.add_theme_color_override("font_placeholder_color", Palette.COMMISSION_META_TEXT)
-	field.add_theme_stylebox_override("normal", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
-	field.add_theme_stylebox_override("hover", _make_button_style(Palette.APP_BUTTON_BACKGROUND_HOVER))
-	field.add_theme_stylebox_override("pressed", _make_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED))
-	field.add_theme_stylebox_override("focus", _make_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED))
+	field.add_theme_color_override("font_color", Palette.color(field_text_color))
+	field.add_theme_color_override("font_placeholder_color", Palette.color(field_placeholder_color))
+	field.add_theme_stylebox_override(
+		"normal", _make_button_style(Palette.color(field_background_color))
+	)
+	field.add_theme_stylebox_override("hover", _make_button_style(Palette.color(field_hover_color)))
+	field.add_theme_stylebox_override(
+		"pressed", _make_button_style(Palette.color(field_pressed_color))
+	)
+	field.add_theme_stylebox_override(
+		"focus", _make_button_style(Palette.color(field_pressed_color))
+	)
 
 
 func _style_button(button: Button, danger: bool) -> void:
-	var text_color := Palette.DANGER_TEXT if danger else Palette.APP_BUTTON_TEXT
-	var normal := Palette.DANGER_BACKGROUND if danger else Palette.APP_BUTTON_BACKGROUND
-	var hover := Palette.DANGER_BACKGROUND_HOVER if danger else Palette.APP_BUTTON_BACKGROUND_HOVER
-	var pressed := Palette.DANGER_BACKGROUND_PRESSED if danger else Palette.APP_BUTTON_BACKGROUND_PRESSED
+	var text_color := (
+		Palette.color(danger_text_color) if danger else Palette.color(button_text_color)
+	)
+	var normal := (
+		Palette.color(danger_background_color)
+		if danger
+		else Palette.color(button_background_color)
+	)
+	var hover := (
+		Palette.color(danger_background_color).lightened(0.1)
+		if danger
+		else Palette.color(button_hover_color)
+	)
+	var pressed := (
+		Palette.color(danger_background_color).darkened(0.1)
+		if danger
+		else Palette.color(button_pressed_color)
+	)
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_color_override("font_hover_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)

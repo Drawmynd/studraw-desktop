@@ -12,6 +12,37 @@ extends Control
 @onready var refuse_button: Button = %RefuseButton
 @onready var archive_button: Button = %ArchiveButton
 
+@export_group("Panneaux")
+@export var list_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+@export var reader_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+
+@export_group("Textes")
+@export var header_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var sender_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var subject_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+@export var body_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var unread_text_color: PaletteData.Colors = PaletteData.Colors.ACCENT
+
+@export_group("Liste")
+@export var list_selected_background_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var list_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var list_selected_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+
+@export_group("Boutons")
+@export var button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var disabled_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+
+@export_group("Actions")
+@export var accept_background_color: PaletteData.Colors = PaletteData.Colors.SUCCESS
+@export var accept_text_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+@export var refuse_background_color: PaletteData.Colors = PaletteData.Colors.ACCENT
+@export var refuse_text_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+@export var delete_background_color: PaletteData.Colors = PaletteData.Colors.DANGER
+@export var delete_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+
 var mail_manager: Node
 var commission_manager: Node
 
@@ -37,36 +68,38 @@ func _ready() -> void:
 
 
 func _apply_palette() -> void:
-	_style_panel(list_panel, Palette.MAIL_LIST_BACKGROUND)
-	_style_panel(reader_panel, Palette.MAIL_READING_BACKGROUND)
-	header_label.add_theme_color_override("font_color", Palette.MAIL_HEADER_TEXT)
-	from_label.add_theme_color_override("font_color", Palette.MAIL_META_TEXT)
-	subject_label.add_theme_color_override("font_color", Palette.MAIL_HEADER_TEXT)
-	body_label.add_theme_color_override("default_color", Palette.MAIL_TEXT)
-	mail_list.add_theme_stylebox_override("panel", _make_style(Palette.MAIL_LIST_BACKGROUND))
-	mail_list.add_theme_stylebox_override("selected", _make_style(Palette.MAIL_SELECTED_BACKGROUND))
+	_style_panel(list_panel, Palette.color(list_background_color))
+	_style_panel(reader_panel, Palette.color(reader_background_color))
+	header_label.add_theme_color_override("font_color", Palette.color(header_text_color))
+	from_label.add_theme_color_override("font_color", Palette.color(sender_text_color))
+	subject_label.add_theme_color_override("font_color", Palette.color(subject_text_color))
+	body_label.add_theme_color_override("default_color", Palette.color(body_text_color))
 	mail_list.add_theme_stylebox_override(
-		"selected_focus", _make_style(Palette.MAIL_SELECTED_BACKGROUND)
+		"panel", _make_style(Palette.color(list_background_color))
 	)
-	mail_list.add_theme_color_override("font_color", Palette.MAIL_TEXT)
-	mail_list.add_theme_color_override("font_selected_color", Palette.MAIL_HEADER_TEXT)
+	mail_list.add_theme_stylebox_override(
+		"selected", _make_style(Palette.color(list_selected_background_color))
+	)
+	mail_list.add_theme_stylebox_override(
+		"selected_focus", _make_style(Palette.color(list_selected_background_color))
+	)
+	mail_list.add_theme_color_override("font_color", Palette.color(list_text_color))
+	mail_list.add_theme_color_override(
+		"font_selected_color", Palette.color(list_selected_text_color)
+	)
 	_style_button(archive_toggle)
 	_style_button(accept_button)
 	_style_button(refuse_button)
 	_style_button(archive_button)
 	_style_colored_button(
 		accept_button,
-		Palette.COMMISSION_ACCEPT_BACKGROUND,
-		Palette.COMMISSION_ACCEPT_BACKGROUND_HOVER,
-		Palette.COMMISSION_ACCEPT_BACKGROUND_PRESSED,
-		Palette.COMMISSION_ACCEPT_TEXT
+		Palette.color(accept_background_color),
+		Palette.color(accept_text_color)
 	)
 	_style_colored_button(
 		refuse_button,
-		Palette.COMMISSION_REFUSE_BACKGROUND,
-		Palette.COMMISSION_REFUSE_BACKGROUND_HOVER,
-		Palette.COMMISSION_REFUSE_BACKGROUND_PRESSED,
-		Palette.COMMISSION_REFUSE_TEXT
+		Palette.color(refuse_background_color),
+		Palette.color(refuse_text_color)
 	)
 	_style_delete_button(archive_button)
 
@@ -90,59 +123,46 @@ func _make_style(background_color: Color) -> StyleBoxFlat:
 
 
 func _style_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_disabled_color", Palette.TITLE_TEXT_INACTIVE)
+	button.add_theme_color_override("font_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_hover_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_pressed_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_focus_color", Palette.color(button_text_color))
+	button.add_theme_color_override("font_disabled_color", Palette.color(disabled_text_color))
 	button.add_theme_stylebox_override(
-		"normal", _make_button_style(Palette.APP_BUTTON_BACKGROUND)
+		"normal", _make_button_style(Palette.color(button_background_color))
 	)
 	button.add_theme_stylebox_override(
-		"hover", _make_button_style(Palette.APP_BUTTON_BACKGROUND_HOVER)
+		"hover", _make_button_style(Palette.color(button_hover_color))
 	)
 	button.add_theme_stylebox_override(
-		"pressed", _make_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED)
+		"pressed", _make_button_style(Palette.color(button_pressed_color))
 	)
 	button.add_theme_stylebox_override(
-		"focus", _make_button_style(Palette.APP_BUTTON_BACKGROUND)
+		"focus", _make_button_style(Palette.color(button_background_color))
 	)
 
 
 func _style_delete_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.MAIL_DELETE_TEXT)
-	button.add_theme_stylebox_override(
-		"normal", _make_button_style(Palette.MAIL_DELETE_BACKGROUND)
-	)
-	button.add_theme_stylebox_override(
-		"hover", _make_button_style(Palette.MAIL_DELETE_BACKGROUND_HOVER)
-	)
-	button.add_theme_stylebox_override(
-		"pressed", _make_button_style(Palette.MAIL_DELETE_BACKGROUND_PRESSED)
-	)
-	button.add_theme_stylebox_override(
-		"focus", _make_button_style(Palette.MAIL_DELETE_BACKGROUND)
+	_style_colored_button(
+		button,
+		Palette.color(delete_background_color),
+		Palette.color(delete_text_color)
 	)
 
 
-func _style_colored_button(
-	button: Button,
-	normal_color: Color,
-	hover_color: Color,
-	pressed_color: Color,
-	text_color: Color
-) -> void:
+func _style_colored_button(button: Button, background_color: Color, text_color: Color) -> void:
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_color_override("font_hover_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)
 	button.add_theme_color_override("font_focus_color", text_color)
-	button.add_theme_stylebox_override("normal", _make_button_style(normal_color))
-	button.add_theme_stylebox_override("hover", _make_button_style(hover_color))
-	button.add_theme_stylebox_override("pressed", _make_button_style(pressed_color))
-	button.add_theme_stylebox_override("focus", _make_button_style(normal_color))
+	button.add_theme_stylebox_override("normal", _make_button_style(background_color))
+	button.add_theme_stylebox_override(
+		"hover", _make_button_style(background_color.lightened(0.1))
+	)
+	button.add_theme_stylebox_override(
+		"pressed", _make_button_style(background_color.darkened(0.1))
+	)
+	button.add_theme_stylebox_override("focus", _make_button_style(background_color))
 
 
 func _make_button_style(background_color: Color) -> StyleBoxFlat:
@@ -173,7 +193,7 @@ func _refresh() -> void:
 		var index := mail_list.add_item(_mail_label(mail))
 		mail_list.set_item_metadata(index, mail["id"])
 		if not bool(mail["read"]):
-			mail_list.set_item_custom_fg_color(index, Palette.MAIL_UNREAD_TEXT)
+			mail_list.set_item_custom_fg_color(index, Palette.color(unread_text_color))
 		if mail["id"] == _selected_id:
 			selected_index = index
 	if selected_index >= 0:

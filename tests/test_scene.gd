@@ -2261,10 +2261,39 @@ func _test_palette() -> Array[String]:
 	var files: Array[String] = []
 	_collect_sources("res://", files)
 	for path in files:
-		if path == "res://managers/palette.gd":
+		if path == "res://managers/palette.gd" or path == "res://theme/palette_data.gd":
 			continue
 		if FileAccess.get_file_as_string(path).contains("Color("):
 			failures.append("%s contains a literal color" % path)
+	if not Palette.colors is PaletteData:
+		failures.append("the palette resource is not a PaletteData")
+	if Palette.using_fallback:
+		failures.append("the palette fell back to its defaults")
+	var entry_count := PaletteData.Colors.size()
+	var color_count := 0
+	for property in PaletteData.new().get_property_list():
+		if property["type"] == TYPE_COLOR:
+			color_count += 1
+	if entry_count != color_count:
+		failures.append("PaletteData lists %d entries for %d colors" % [entry_count, color_count])
+	for entry in PaletteData.Colors.values():
+		if not (Palette.color(entry) is Color):
+			failures.append("%s does not resolve to a color" % PaletteData.Colors.keys()[entry])
+	if Palette.load_from("res://theme/missing.tres") != null:
+		failures.append("a missing palette did not fall back")
+	var wrong_path := "user://test_palette_wrong.tres"
+	ResourceSaver.save(Resource.new(), wrong_path)
+	if Palette.load_from(wrong_path) != null:
+		failures.append("a non palette resource did not fall back")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(wrong_path))
+	var edited := PaletteData.new()
+	edited.background = Color(1, 0, 0)
+	var edited_path := "user://test_palette.tres"
+	ResourceSaver.save(edited, edited_path)
+	var reloaded := Palette.load_from(edited_path)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(edited_path))
+	if reloaded == null or reloaded.background != Color(1, 0, 0):
+		failures.append("an edited palette was not reloaded")
 	return failures
 
 

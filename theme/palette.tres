@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="PaletteData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://theme/palette_data.gd" id="1_palette"]
+
+[resource]
+script = ExtResource("1_palette")
+background = Color(0.0901961, 0.101961, 0.121569, 1)
+surface = Color(0.12549, 0.145098, 0.176471, 1)
+surface_raised = Color(0.14902, 0.176471, 0.219608, 1)
+border = Color(0.239216, 0.278431, 0.34902, 1)
+text = Color(0.85098, 0.878431, 0.921569, 1)
+text_strong = Color(0.94902, 0.960784, 0.980392, 1)
+text_muted = Color(0.6, 0.639216, 0.701961, 1)
+accent = Color(0.941176, 0.776471, 0.454902, 1)
+hover = Color(0.2, 0.25098, 0.329412, 1)
+pressed = Color(0.239216, 0.290196, 0.380392, 1)
+danger = Color(0.752941, 0.290196, 0.329412, 1)
+success = Color(0.247059, 0.603922, 0.388235, 1)

@@ -5,6 +5,15 @@ extends Control
 @onready var refresh_button: Button = %RefreshButton
 @onready var content: RichTextLabel = %Content
 
+@export_group("Couleurs")
+@export var panel_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE
+@export var path_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var content_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+@export var button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+
 var file_path: String = ""
 
 
@@ -22,23 +31,31 @@ func _ready() -> void:
 
 func _apply_palette() -> void:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Palette.COMMISSION_PANEL_BACKGROUND
+	style.bg_color = Palette.color(panel_background_color)
 	style.set_corner_radius_all(4)
 	style.content_margin_left = 12.0
 	style.content_margin_right = 12.0
 	style.content_margin_top = 10.0
 	style.content_margin_bottom = 10.0
 	panel.add_theme_stylebox_override("panel", style)
-	path_label.add_theme_color_override("font_color", Palette.COMMISSION_META_TEXT)
-	content.add_theme_color_override("default_color", Palette.COMMISSION_TEXT)
-	refresh_button.add_theme_color_override("font_color", Palette.APP_BUTTON_TEXT)
-	refresh_button.add_theme_color_override("font_hover_color", Palette.APP_BUTTON_TEXT)
-	refresh_button.add_theme_color_override("font_pressed_color", Palette.APP_BUTTON_TEXT)
-	refresh_button.add_theme_color_override("font_focus_color", Palette.APP_BUTTON_TEXT)
-	refresh_button.add_theme_stylebox_override("normal", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
-	refresh_button.add_theme_stylebox_override("hover", _make_button_style(Palette.APP_BUTTON_BACKGROUND_HOVER))
-	refresh_button.add_theme_stylebox_override("pressed", _make_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED))
-	refresh_button.add_theme_stylebox_override("focus", _make_button_style(Palette.APP_BUTTON_BACKGROUND))
+	path_label.add_theme_color_override("font_color", Palette.color(path_text_color))
+	content.add_theme_color_override("default_color", Palette.color(content_text_color))
+	refresh_button.add_theme_color_override("font_color", Palette.color(button_text_color))
+	refresh_button.add_theme_color_override("font_hover_color", Palette.color(button_text_color))
+	refresh_button.add_theme_color_override("font_pressed_color", Palette.color(button_text_color))
+	refresh_button.add_theme_color_override("font_focus_color", Palette.color(button_text_color))
+	refresh_button.add_theme_stylebox_override(
+		"normal", _make_button_style(Palette.color(button_background_color))
+	)
+	refresh_button.add_theme_stylebox_override(
+		"hover", _make_button_style(Palette.color(button_hover_color))
+	)
+	refresh_button.add_theme_stylebox_override(
+		"pressed", _make_button_style(Palette.color(button_pressed_color))
+	)
+	refresh_button.add_theme_stylebox_override(
+		"focus", _make_button_style(Palette.color(button_background_color))
+	)
 
 
 func _make_button_style(background_color: Color) -> StyleBoxFlat:

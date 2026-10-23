@@ -36,6 +36,21 @@ const NOTIFICATION_DURATION := 6.0
 @onready var notification_panel: PanelContainer = %NotificationPanel
 @onready var notification_label: Label = %NotificationLabel
 
+@export_group("Bureau")
+@export var desktop_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+@export var taskbar_background_color: PaletteData.Colors = PaletteData.Colors.BACKGROUND
+
+@export_group("Notifications")
+@export var notification_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var notification_border_color: PaletteData.Colors = PaletteData.Colors.BORDER
+@export var notification_text_color: PaletteData.Colors = PaletteData.Colors.TEXT_STRONG
+
+@export_group("Boutons")
+@export var app_button_background_color: PaletteData.Colors = PaletteData.Colors.SURFACE_RAISED
+@export var app_button_hover_color: PaletteData.Colors = PaletteData.Colors.HOVER
+@export var app_button_pressed_color: PaletteData.Colors = PaletteData.Colors.PRESSED
+@export var app_button_text_color: PaletteData.Colors = PaletteData.Colors.TEXT
+
 var auth_manager: Node
 
 var _cascade_index: int = 0
@@ -78,9 +93,11 @@ func _ready() -> void:
 
 
 func _apply_palette() -> void:
-	background.color = Palette.DESKTOP_BACKGROUND
+	background.color = Palette.color(desktop_background_color)
+	var taskbar_background := Palette.color(taskbar_background_color)
+	taskbar_background.a = Palette.TASKBAR_ALPHA
 	var taskbar_style := StyleBoxFlat.new()
-	taskbar_style.bg_color = Palette.TASKBAR_BACKGROUND
+	taskbar_style.bg_color = taskbar_background
 	taskbar_style.content_margin_left = 16.0
 	taskbar_style.content_margin_right = 16.0
 	taskbar.add_theme_stylebox_override("panel", taskbar_style)
@@ -92,8 +109,8 @@ func _apply_palette() -> void:
 	_style_app_button(profile_button)
 	_style_app_button(logout_button)
 	var notification_style := StyleBoxFlat.new()
-	notification_style.bg_color = Palette.NOTIFICATION_BACKGROUND
-	notification_style.border_color = Palette.NOTIFICATION_BORDER
+	notification_style.bg_color = Palette.color(notification_background_color)
+	notification_style.border_color = Palette.color(notification_border_color)
 	notification_style.set_border_width_all(1)
 	notification_style.set_corner_radius_all(4)
 	notification_style.content_margin_left = 12.0
@@ -101,26 +118,26 @@ func _apply_palette() -> void:
 	notification_style.content_margin_top = 8.0
 	notification_style.content_margin_bottom = 8.0
 	notification_panel.add_theme_stylebox_override("panel", notification_style)
-	notification_label.add_theme_color_override("font_color", Palette.NOTIFICATION_TEXT)
+	notification_label.add_theme_color_override("font_color", Palette.color(notification_text_color))
 	notification_panel.hide()
 
 
 func _style_app_button(button: Button) -> void:
-	button.add_theme_color_override("font_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_hover_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_pressed_color", Palette.APP_BUTTON_TEXT)
-	button.add_theme_color_override("font_focus_color", Palette.APP_BUTTON_TEXT)
+	button.add_theme_color_override("font_color", Palette.color(app_button_text_color))
+	button.add_theme_color_override("font_hover_color", Palette.color(app_button_text_color))
+	button.add_theme_color_override("font_pressed_color", Palette.color(app_button_text_color))
+	button.add_theme_color_override("font_focus_color", Palette.color(app_button_text_color))
 	button.add_theme_stylebox_override(
-		"normal", _make_app_button_style(Palette.APP_BUTTON_BACKGROUND)
+		"normal", _make_app_button_style(Palette.color(app_button_background_color))
 	)
 	button.add_theme_stylebox_override(
-		"hover", _make_app_button_style(Palette.APP_BUTTON_BACKGROUND_HOVER)
+		"hover", _make_app_button_style(Palette.color(app_button_hover_color))
 	)
 	button.add_theme_stylebox_override(
-		"pressed", _make_app_button_style(Palette.APP_BUTTON_BACKGROUND_PRESSED)
+		"pressed", _make_app_button_style(Palette.color(app_button_pressed_color))
 	)
 	button.add_theme_stylebox_override(
-		"focus", _make_app_button_style(Palette.APP_BUTTON_BACKGROUND)
+		"focus", _make_app_button_style(Palette.color(app_button_background_color))
 	)
 
 

@@ -10,6 +10,11 @@ const ICON_LOCAL := "res://components/wifi/icons/wifi_off.svg"
 const ICON_ERROR := "res://components/wifi/icons/wifi_alert.svg"
 const ICON_SVG_SCALE := 2.0
 
+@export_group("Couleurs")
+@export var remote_color: PaletteData.Colors = PaletteData.Colors.SUCCESS
+@export var local_color: PaletteData.Colors = PaletteData.Colors.TEXT_MUTED
+@export var error_color: PaletteData.Colors = PaletteData.Colors.DANGER
+
 var _state: String = STATE_LOCAL
 var _textures: Dictionary = {}
 
@@ -77,8 +82,8 @@ func _draw() -> void:
 func _state_color() -> Color:
 	match _state:
 		STATE_REMOTE:
-			return Palette.WIFI_REMOTE
+			return Palette.color(remote_color)
 		STATE_ERROR:
-			return Palette.WIFI_ERROR
+			return Palette.color(error_color)
 		_:
-			return Palette.WIFI_LOCAL
+			return Palette.color(local_color)
