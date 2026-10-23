@@ -74,17 +74,18 @@ Phases are ordered by priority; identifiers stay stable across reordering.
 
 ### M9 — Image delivery and gallery
 
-- Delivery view from an active commission: pick an image, preview it letterboxed (contain, never
-  cropped), replace or clear it before sending.
+- Delivery view from an active or finished commission: pick an image, preview it letterboxed
+  (contain, never cropped), replace or clear it before sending.
 - Accept PNG, JPG and WebP under a size cap; copy the file under
   `user://profiles/<id>/deliveries/<commission_id>/` and refuse unsupported or oversized files.
-- Delivering before the deadline marks success and sends the success mail; a passed deadline
-  fails the commission and accepts no delivery.
-- Galerie app with a thumbnail grid and a full-size viewer, showing client, type and delivery
-  date, per profile.
+- Delivering before the deadline marks success and sends the success mail; a passed deadline fails
+  the commission but still accepts the image, marked « livré trop tard ». A finished commission
+  accepts a delivery without changing its status.
+- Galerie app with a thumbnail grid, a list view and a full-size viewer, showing client, type,
+  delivery date and the late marker, per profile.
 - Acceptance: the preview and the gallery viewer render the exact delivered image; an on-time
-  delivery appears in the galerie; a late delivery leaves no entry; unsupported files are
-  refused.
+  delivery appears in the galerie; a late delivery appears with the late marker; unsupported files
+  are refused.
 - Out of scope: cropping, editing, multiple images per commission, video, cloud storage.
 
 ### M15 — Editable palette

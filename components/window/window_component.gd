@@ -301,9 +301,13 @@ func _on_maximize_pressed() -> void:
 	toggle_maximize()
 
 
-func _on_close_pressed() -> void:
+func close() -> void:
 	closed.emit(self)
 	queue_free()
+
+
+func _on_close_pressed() -> void:
+	close()
 
 
 func _on_viewport_size_changed() -> void:

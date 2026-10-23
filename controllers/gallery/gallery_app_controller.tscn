@@ -1,0 +1,151 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://controllers/gallery/gallery_app_controller.gd" id="1_gallery"]
+
+[node name="GalleryAppController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_gallery")
+
+[node name="Split" type="HSplitContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+split_offset = 300
+
+[node name="ListPanel" type="PanelContainer" parent="Split"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="ListMargin" type="MarginContainer" parent="Split/ListPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ListBox" type="VBoxContainer" parent="Split/ListPanel/ListMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderLabel" type="Label" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Galerie"
+
+[node name="ViewToggle" type="Button" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Vue liste"
+
+[node name="EmptyLabel" type="Label" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Aucune livraison."
+autowrap_mode = 1
+
+[node name="GridScroll" type="ScrollContainer" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Grid" type="GridContainer" parent="Split/ListPanel/ListMargin/ListBox/GridScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 3
+
+[node name="ListScroll" type="ScrollContainer" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="GalleryList" type="ItemList" parent="Split/ListPanel/ListMargin/ListBox/ListScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+autowrap_mode = 1
+
+[node name="ViewerPanel" type="PanelContainer" parent="Split"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ViewerMargin" type="MarginContainer" parent="Split/ViewerPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="ViewerBox" type="VBoxContainer" parent="Split/ViewerPanel/ViewerMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ViewerTitle" type="Label" parent="Split/ViewerPanel/ViewerMargin/ViewerBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Aucune livraison"
+autowrap_mode = 1
+
+[node name="ViewerMeta" type="Label" parent="Split/ViewerPanel/ViewerMargin/ViewerBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 1
+
+[node name="ViewerFrame" type="PanelContainer" parent="Split/ViewerPanel/ViewerMargin/ViewerBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ViewerStack" type="Control" parent="Split/ViewerPanel/ViewerMargin/ViewerBox/ViewerFrame"]
+layout_mode = 2
+custom_minimum_size = Vector2(320, 240)
+
+[node name="Viewer" type="TextureRect" parent="Split/ViewerPanel/ViewerMargin/ViewerBox/ViewerFrame/ViewerStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MissingLabel" type="Label" parent="Split/ViewerPanel/ViewerMargin/ViewerBox/ViewerFrame/ViewerStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Image introuvable."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 1

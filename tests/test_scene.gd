@@ -33,6 +33,9 @@ func _run() -> void:
 	results["T-DSK"] = await _test_desktop_controller()
 	results["T-MAIL"] = _test_mail_manager()
 	results["T-COM"] = await _test_commission_manager()
+	results["T-DEL"] = await _test_delivery_manager()
+	results["T-GAL"] = await _test_gallery()
+	results["T-DEL-GAL"] = await _test_delivery_gallery()
 	results["T-SYNC"] = await _test_sync_manager()
 	results["T-SYNC-COM"] = await _test_sync_commission_merge()
 	results["T-SYNC-MAIL"] = await _test_sync_mail_offers()
@@ -360,6 +363,60 @@ func _test_commission_manager() -> Array[String]:
 			% commissions_app.commission_list.get_child_count()
 		)
 
+	var delivery_now := int(Time.get_unix_time_from_system())
+	var delivery := {"path": "user://test_delivery.png", "name": "test_delivery.png"}
+	if not manager.complete("offre_test", delivery, delivery_now):
+		failures.append("complete: the delivered commission was refused")
+	var delivered_state: Dictionary = manager.get_commission("offre_test")
+	if str(delivered_state.get("status", "")) != "success":
+		failures.append("complete: the delivered commission is not a success")
+	if str(delivered_state.get("delivery_path", "")) != "user://test_delivery.png":
+		failures.append("complete: the delivery path was not stored")
+	if str(delivered_state.get("delivery_name", "")) != "test_delivery.png":
+		failures.append("complete: the delivery name was not stored")
+	if int(delivered_state.get("delivered_at", 0)) != delivery_now:
+		failures.append("complete: the delivery date was not stored")
+	if _count_mails(mail_manager.get_mails(true), "succes_offre_test") != 1:
+		failures.append("complete: the success mail was not sent once")
+	if manager.complete("offre_test", delivery, delivery_now):
+		failures.append("complete: a finished commission was completed twice")
+
+	manager.accept({
+		"id": "tardive",
+		"title": "Tardive",
+		"type": "croquis",
+		"duration": 1,
+		"mail_failure": "",
+	}, delivery_now - 120)
+	if manager.complete("tardive", delivery, delivery_now):
+		failures.append("late complete: a passed deadline accepted the delivery")
+	var late_state: Dictionary = manager.get_commission("tardive")
+	if str(late_state.get("status", "")) != "failed":
+		failures.append("late complete: the commission was not failed")
+	if str(late_state.get("delivery_path", "")) != "":
+		failures.append("late complete: a delivery was stored")
+	if _count_mails(mail_manager.get_mails(true), "echec_tardive") != 1:
+		failures.append("late complete: the failure mail was not sent")
+
+	if not manager.record_delivery("tardive", delivery, delivery_now):
+		failures.append("record: a finished commission refused the delivery")
+	late_state = manager.get_commission("tardive")
+	if str(late_state.get("delivery_path", "")) != "user://test_delivery.png":
+		failures.append("record: the late delivery was not stored")
+	if not bool(late_state.get("delivery_late", false)):
+		failures.append("record: the late delivery is not flagged")
+	if _count_mails(mail_manager.get_mails(true), "succes_tardive") != 0:
+		failures.append("record: a late delivery sent a success mail")
+	if not commissions_app._terminal_message(late_state).begins_with("Livré trop tard"):
+		failures.append("record: the finished row does not report the late delivery")
+
+	var reloaded_delivery = load("res://managers/commission_manager.gd").new()
+	reloaded_delivery.save_path = save_path
+	reloaded_delivery.load_state()
+	if str(reloaded_delivery.get_commission("offre_test").get("delivery_path", "")) == "":
+		failures.append("persistence: the delivery was not reloaded")
+	reloaded_delivery.free()
+
 	var reminders: Array[String] = []
 	manager.commission_reminder.connect(
 		func(commission_id: String, hours_remaining: int) -> void:
@@ -404,6 +461,298 @@ func _test_commission_manager() -> Array[String]:
 	clock.free()
 	await get_tree().process_frame
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+	return failures
+
+
+func _test_delivery_manager() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_del_%d" % Time.get_ticks_usec()
+	var save_path := "%s/save.json" % base
+	var png_path := "%s/source.png" % base
+	var gif_path := "%s/source.gif" % base
+	var missing_path := "%s/missing.png" % base
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base))
+	_write_png(png_path, Color(0.8, 0.2, 0.2))
+	var gif := FileAccess.open(gif_path, FileAccess.WRITE)
+	gif.store_string("GIF89a")
+	gif.close()
+	var isolated := _make_isolated_managers(save_path)
+	var manager = isolated["commission_manager"]
+	var deliveries = load("res://managers/delivery_manager.gd").new()
+	deliveries.commission_manager = manager
+	add_child(deliveries)
+	var now := int(Time.get_unix_time_from_system())
+	manager.accept({"id": "liv_a", "title": "Livraison A", "type": "croquis", "duration": 60}, now)
+
+	if not bool(deliveries.validate(png_path).get("ok", false)):
+		failures.append("validate: a PNG was refused")
+	if bool(deliveries.validate(gif_path).get("ok", false)):
+		failures.append("validate: a GIF was accepted")
+	if not str(deliveries.validate(gif_path).get("error", "")).contains("Format"):
+		failures.append("validate: a GIF error does not name the format")
+	if bool(deliveries.validate(missing_path).get("ok", false)):
+		failures.append("validate: a missing file was accepted")
+	deliveries.max_bytes = 32
+	if not str(deliveries.validate(png_path).get("error", "")).contains("lourde"):
+		failures.append("validate: an oversized image was accepted")
+	deliveries.max_bytes = 10 * 1024 * 1024
+
+	if bool(deliveries.deliver("inconnue", png_path, now).get("ok", false)):
+		failures.append("deliver: an unknown commission accepted the file")
+	if bool(deliveries.deliver("liv_a", gif_path, now).get("ok", false)):
+		failures.append("deliver: a GIF reached the commission")
+
+	var result: Dictionary = deliveries.deliver("liv_a", png_path, now)
+	if not bool(result.get("ok", false)):
+		failures.append("deliver: a valid PNG failed (%s)" % str(result.get("error", "")))
+	var stored_path := str(result.get("path", ""))
+	if not FileAccess.file_exists(stored_path):
+		failures.append("deliver: the image was not copied")
+	if not stored_path.begins_with("%s/deliveries/liv_a/" % base):
+		failures.append("deliver: the image is outside the profile folder (%s)" % stored_path)
+	if FileAccess.get_file_as_bytes(stored_path) != FileAccess.get_file_as_bytes(png_path):
+		failures.append("deliver: the copied bytes differ from the source")
+	var state: Dictionary = manager.get_commission("liv_a")
+	if str(state.get("delivery_path", "")) != stored_path:
+		failures.append("deliver: the commission does not hold the delivery path")
+	if str(state.get("delivery_name", "")) != "source.png":
+		failures.append("deliver: the commission does not hold the delivery name")
+	if int(state.get("delivered_at", 0)) != now:
+		failures.append("deliver: the commission does not hold the delivery date")
+	var replaced: Dictionary = deliveries.deliver("liv_a", png_path, now)
+	if not bool(replaced.get("ok", false)):
+		failures.append("deliver: a finished success refused the image")
+	if bool(replaced.get("late", false)):
+		failures.append("deliver: a success replacement is flagged as late")
+	var texture = deliveries.load_texture(stored_path)
+	if texture == null or texture.get_width() != 4:
+		failures.append("load: the delivered texture is not readable")
+
+	manager.accept({"id": "liv_b", "title": "Livraison B", "type": "croquis", "duration": 1}, now - 120)
+	var late: Dictionary = deliveries.deliver("liv_b", png_path, now)
+	if not bool(late.get("ok", false)):
+		failures.append("deliver: a finished commission refused the image")
+	if not bool(late.get("late", false)):
+		failures.append("deliver: the late delivery is not flagged")
+	if not FileAccess.file_exists("%s/deliveries/liv_b/source.png" % base):
+		failures.append("deliver: the late delivery left no file")
+	var late_state: Dictionary = manager.get_commission("liv_b")
+	if str(late_state.get("status", "")) != "failed":
+		failures.append("deliver: the late commission is not failed")
+	if str(late_state.get("delivery_path", "")) == "":
+		failures.append("deliver: the late delivery was not stored")
+	if not bool(late_state.get("delivery_late", false)):
+		failures.append("deliver: the late commission is not flagged")
+
+	manager.accept({"id": "liv_c", "title": "Livraison C", "type": "croquis", "duration": 60}, now)
+	var view = load("res://controllers/delivery/delivery_controller.tscn").instantiate()
+	view.commission_manager = manager
+	view.delivery_manager = deliveries
+	view.setup("liv_c")
+	add_child(view)
+	await get_tree().process_frame
+	if view.title_label.text != "Livraison C":
+		failures.append("view: the commission title is not shown")
+	if view.set_source_path(gif_path):
+		failures.append("view: a GIF was previewed")
+	if view.preview.texture != null:
+		failures.append("view: a refused image left a preview")
+	if not view.set_source_path(png_path):
+		failures.append("view: a valid PNG was not previewed")
+	if view.preview.texture == null:
+		failures.append("view: the preview texture is missing")
+	view.clear_source()
+	if view.preview.texture != null or not view.send_button.disabled:
+		failures.append("view: clearing the selection left a preview")
+	if not view.set_source_path(png_path):
+		failures.append("view: the replacement image was refused")
+	var delivered_events := {"value": 0}
+	view.delivered.connect(func(_id: String) -> void: delivered_events["value"] += 1)
+	if not view.send():
+		failures.append("view: sending a valid delivery failed (%s)" % view.status_label.text)
+	if delivered_events["value"] != 1:
+		failures.append("view: expected 1 delivered signal, got %d" % delivered_events["value"])
+	if str(manager.get_commission("liv_c").get("status", "")) != "success":
+		failures.append("view: the commission is not a success after sending")
+
+	view.queue_free()
+	deliveries.queue_free()
+	isolated["mail_manager"].free()
+	manager.free()
+	await get_tree().process_frame
+	_remove_directory(base)
+	return failures
+
+
+func _test_gallery() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_gal_%d" % Time.get_ticks_usec()
+	var save_path := "%s/save.json" % base
+	var old_image := "%s/old.png" % base
+	var new_image := "%s/new.png" % base
+	var missing_image := "%s/missing.png" % base
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base))
+	_write_png(old_image, Color(0.2, 0.2, 0.8))
+	_write_png(new_image, Color(0.2, 0.8, 0.2))
+	var now := 1792454400
+	_write_json(save_path, {
+		"commissions": [
+			{
+				"id": "gal_old",
+				"status": "success",
+				"title": "Ancienne",
+				"client": "Client A",
+				"type": "croquis",
+				"delivered_at": now - 3600,
+				"delivery_path": old_image,
+				"delivery_name": "old.png",
+			},
+			{
+				"id": "gal_new",
+				"status": "success",
+				"title": "Récente",
+				"client": "Client B",
+				"type": "affiche",
+				"delivered_at": now,
+				"delivery_path": new_image,
+				"delivery_name": "new.png",
+			},
+			{
+				"id": "gal_missing",
+				"status": "success",
+				"title": "Disparue",
+				"client": "Client C",
+				"type": "affiche",
+				"delivered_at": now - 7200,
+				"delivery_path": missing_image,
+				"delivery_name": "missing.png",
+			},
+			{
+				"id": "gal_failed",
+				"status": "failed",
+				"title": "Tardive",
+				"client": "Client D",
+				"type": "affiche",
+				"delivered_at": now - 60,
+				"delivery_path": new_image,
+				"delivery_name": "new.png",
+				"delivery_late": true,
+			},
+			{
+				"id": "gal_plain",
+				"status": "success",
+				"title": "Sans image",
+				"delivered_at": now - 30,
+			},
+		],
+	})
+	var isolated = _make_isolated_managers(save_path)
+	var deliveries = load("res://managers/delivery_manager.gd").new()
+	deliveries.commission_manager = isolated["commission_manager"]
+	add_child(deliveries)
+	var gallery = load("res://controllers/gallery/gallery_app_controller.tscn").instantiate()
+	gallery.commission_manager = isolated["commission_manager"]
+	gallery.delivery_manager = deliveries
+	add_child(gallery)
+	await get_tree().process_frame
+
+	if gallery.grid.get_child_count() != 4:
+		failures.append("gallery: expected 4 thumbnails, got %d" % gallery.grid.get_child_count())
+	if gallery.gallery_list.item_count != 4:
+		failures.append("gallery: expected 4 list rows, got %d" % gallery.gallery_list.item_count)
+	if str(gallery._entries[0]["id"]) != "gal_new":
+		failures.append("gallery: the newest delivery is not first")
+	if not gallery.gallery_list.get_item_text(1).contains("livré trop tard"):
+		failures.append("gallery: the late delivery is not labelled")
+	if gallery.viewer_title.text != "Récente":
+		failures.append("gallery: the newest delivery is not selected")
+	if not gallery.viewer_meta.text.contains("Client B") or not gallery.viewer_meta.text.contains("livrée le"):
+		failures.append("gallery: the viewer metadata is incomplete")
+	var source := Image.load_from_file(new_image)
+	if gallery.viewer.texture == null:
+		failures.append("gallery: the viewer texture is missing")
+	elif gallery.viewer.texture.get_image().get_data() != source.get_data():
+		failures.append("gallery: the viewer does not render the delivered image")
+
+	gallery._select("gal_missing")
+	if gallery.viewer.texture != null or not gallery.missing_label.visible:
+		failures.append("gallery: a missing file is not reported")
+	gallery._select("gal_failed")
+	if not gallery.viewer_meta.text.contains("livré trop tard"):
+		failures.append("gallery: the late delivery is not reported in the viewer")
+	gallery.view_toggle.button_pressed = true
+	if gallery.grid_scroll.visible or not gallery.list_scroll.visible:
+		failures.append("gallery: the list view did not replace the grid")
+	gallery._on_list_selected(0)
+	if gallery.viewer_title.text != "Récente":
+		failures.append("gallery: selecting a list row did not open the viewer")
+	gallery.view_toggle.button_pressed = false
+	if not gallery.grid_scroll.visible or gallery.list_scroll.visible:
+		failures.append("gallery: the grid view did not come back")
+
+	gallery.queue_free()
+	deliveries.queue_free()
+	isolated["mail_manager"].free()
+	isolated["commission_manager"].free()
+	await get_tree().process_frame
+	_remove_directory(base)
+	return failures
+
+
+func _test_delivery_gallery() -> Array[String]:
+	var failures: Array[String] = []
+	var base := "user://test_del_gal_%d" % Time.get_ticks_usec()
+	var save_path := "%s/save.json" % base
+	var png_path := "%s/source.png" % base
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base))
+	_write_png(png_path, Color(0.9, 0.7, 0.1))
+	var isolated := _make_isolated_managers(save_path)
+	var manager = isolated["commission_manager"]
+	var deliveries = load("res://managers/delivery_manager.gd").new()
+	deliveries.commission_manager = manager
+	add_child(deliveries)
+	var now := int(Time.get_unix_time_from_system())
+	manager.accept({"id": "gal_del", "title": "Livrée", "client": "Client", "type": "affiche", "duration": 60}, now - 30)
+	if not bool(deliveries.deliver("gal_del", png_path, now).get("ok", false)):
+		failures.append("delivery+gallery: the delivery failed")
+
+	var gallery = load("res://controllers/gallery/gallery_app_controller.tscn").instantiate()
+	gallery.commission_manager = manager
+	gallery.delivery_manager = deliveries
+	add_child(gallery)
+	await get_tree().process_frame
+	if gallery.grid.get_child_count() != 1:
+		failures.append("delivery+gallery: the delivered image is absent")
+	if gallery.viewer.texture == null:
+		failures.append("delivery+gallery: the viewer texture is missing")
+	else:
+		var source := Image.load_from_file(png_path)
+		if gallery.viewer.texture.get_image().get_data() != source.get_data():
+			failures.append("delivery+gallery: the viewer does not render the delivered bytes")
+
+	manager.accept({"id": "gal_late", "title": "Tardive", "type": "affiche", "duration": 1}, now - 120)
+	var late_result: Dictionary = deliveries.deliver("gal_late", png_path, now)
+	if not bool(late_result.get("ok", false)):
+		failures.append("delivery+gallery: a finished commission refused the image")
+	if not bool(late_result.get("late", false)):
+		failures.append("delivery+gallery: the late delivery is not flagged")
+	gallery.refresh()
+	if gallery.grid.get_child_count() != 2:
+		failures.append("delivery+gallery: the late delivery is absent from the gallery")
+	gallery._select("gal_late")
+	if not gallery.viewer_meta.text.contains("livré trop tard"):
+		failures.append("delivery+gallery: the late delivery is not reported")
+	manager.accept({"id": "gal_plain", "title": "En cours", "type": "affiche", "duration": 60}, now)
+	gallery.refresh()
+	if gallery.grid.get_child_count() != 2:
+		failures.append("delivery+gallery: an undelivered commission entered the gallery")
+
+	gallery.queue_free()
+	deliveries.queue_free()
+	isolated["mail_manager"].free()
+	manager.free()
+	await get_tree().process_frame
+	_remove_directory(base)
 	return failures
 
 
@@ -1867,6 +2216,12 @@ func _write_json(path: String, data: Dictionary) -> void:
 		return
 	file.store_string(JSON.stringify(data, "\t"))
 	file.close()
+
+
+func _write_png(path: String, color: Color) -> void:
+	var image := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	image.fill(color)
+	image.save_png(path)
 
 
 func _remove_file(path: String) -> void:

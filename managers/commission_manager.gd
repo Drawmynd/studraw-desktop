@@ -73,6 +73,10 @@ func accept(commission: Dictionary, now: int = -1) -> String:
 		"mail_request": str(definition["mail_request"]),
 		"mail_success": str(definition["mail_success"]),
 		"mail_failure": str(definition["mail_failure"]),
+		"delivery_path": "",
+		"delivery_name": "",
+		"delivered_at": 0,
+		"delivery_late": false,
 	}
 	_commissions.append(state)
 	save_state()
@@ -99,11 +103,19 @@ func clear_all() -> void:
 	commissions_changed.emit()
 
 
-func complete(commission_id: String) -> void:
+func complete(commission_id: String, delivery: Dictionary = {}, now: int = -1) -> bool:
 	var state := _find_state(commission_id)
 	if state.is_empty() or str(state["status"]) != STATUS_ACTIVE:
-		return
+		return false
+	var completed_at := _now() if now < 0 else now
+	if completed_at > int(state["deadline"]):
+		check_deadlines(completed_at)
+		return false
 	state["status"] = STATUS_SUCCESS
+	state["delivery_path"] = str(delivery.get("path", ""))
+	state["delivery_name"] = str(delivery.get("name", ""))
+	state["delivered_at"] = completed_at if not delivery.is_empty() else 0
+	state["delivery_late"] = false
 	save_state()
 	commissions_changed.emit()
 	commission_completed.emit(commission_id)
@@ -112,6 +124,21 @@ func complete(commission_id: String) -> void:
 	if body == "":
 		body = "Votre commande « %s » est terminée." % title
 	_send_mail("succes_%s" % commission_id, _mail_sender(state), "Succès : %s" % title, body)
+	return true
+
+
+func record_delivery(commission_id: String, delivery: Dictionary, now: int = -1) -> bool:
+	var state := _find_state(commission_id)
+	if state.is_empty() or str(delivery.get("path", "")) == "":
+		return false
+	var delivered_at := _now() if now < 0 else now
+	state["delivery_path"] = str(delivery.get("path", ""))
+	state["delivery_name"] = str(delivery.get("name", ""))
+	state["delivered_at"] = delivered_at
+	state["delivery_late"] = str(state["status"]) == STATUS_FAILED
+	save_state()
+	commissions_changed.emit()
+	return true
 
 
 func check_deadlines(now: int = -1) -> void:
@@ -386,6 +413,10 @@ func _normalize_state(entry: Dictionary) -> Dictionary:
 		"mail_request": str(entry.get("mail_request", "")),
 		"mail_success": str(entry.get("mail_success", "")),
 		"mail_failure": str(entry.get("mail_failure", "")),
+		"delivery_path": str(entry.get("delivery_path", "")),
+		"delivery_name": str(entry.get("delivery_name", "")),
+		"delivered_at": int(entry.get("delivered_at", 0)),
+		"delivery_late": bool(entry.get("delivery_late", false)),
 	}
 
 

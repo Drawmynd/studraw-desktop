@@ -9,6 +9,10 @@ const DEV_CONSOLE_SCENE: PackedScene = preload("res://controllers/dev/dev_consol
 const EDITOR_SCENE: PackedScene = preload(
 	"res://controllers/editor/commission_editor_controller.tscn"
 )
+const DELIVERY_SCENE: PackedScene = preload(
+	"res://controllers/delivery/delivery_controller.tscn"
+)
+const GALLERY_SCENE: PackedScene = preload("res://controllers/gallery/gallery_app_controller.tscn")
 const PROFILE_APP_SCENE: PackedScene = preload("res://controllers/profile/profile_controller.tscn")
 const LOGIN_SCENE := "res://controllers/login/login_controller.tscn"
 const WIFI_INDICATOR_SCRIPT := preload("res://components/wifi/wifi_indicator.gd")
@@ -24,6 +28,7 @@ const NOTIFICATION_DURATION := 6.0
 @onready var wifi_indicator: Control = %WifiIndicator
 @onready var mail_button: Button = %MailButton
 @onready var commissions_button: Button = %CommissionsButton
+@onready var gallery_button: Button = %GalleryButton
 @onready var editor_button: Button = %EditorButton
 @onready var dev_button: Button = %DevButton
 @onready var profile_button: Button = %ProfileButton
@@ -48,6 +53,7 @@ func _ready() -> void:
 	ClockManager.second_tick.connect(_update_clock)
 	mail_button.pressed.connect(_open_mail_app)
 	commissions_button.pressed.connect(_open_commissions_app)
+	gallery_button.pressed.connect(_open_gallery)
 	editor_button.pressed.connect(_open_commission_editor)
 	dev_button.pressed.connect(_open_dev_console)
 	profile_button.pressed.connect(_open_profile_app)
@@ -80,6 +86,7 @@ func _apply_palette() -> void:
 	taskbar.add_theme_stylebox_override("panel", taskbar_style)
 	_style_app_button(mail_button)
 	_style_app_button(commissions_button)
+	_style_app_button(gallery_button)
 	_style_app_button(editor_button)
 	_style_app_button(dev_button)
 	_style_app_button(profile_button)
@@ -137,7 +144,40 @@ func _open_mail_app() -> void:
 
 
 func _open_commissions_app() -> void:
-	open_window("Commandes", COMMISSIONS_APP_SCENE.instantiate())
+	var app := COMMISSIONS_APP_SCENE.instantiate()
+	app.delivery_requested.connect(_open_delivery)
+	open_window("Commandes", app)
+
+
+func _open_gallery() -> void:
+	var gallery := GALLERY_SCENE.instantiate()
+	gallery.commission_manager = CommissionManager
+	gallery.delivery_manager = DeliveryManager
+	var window: WindowComponent = open_window("Galerie", gallery)
+	window.size = Vector2(820, 600)
+	window.clamp_into_work_area()
+
+
+func _open_delivery(commission_id: String) -> void:
+	var delivery := DELIVERY_SCENE.instantiate()
+	delivery.commission_manager = CommissionManager
+	delivery.delivery_manager = DeliveryManager
+	delivery.setup(commission_id)
+	var window: WindowComponent = open_window("Livraison", delivery)
+	window.size = Vector2(720, 560)
+	window.clamp_into_work_area()
+	delivery.delivered.connect(_on_delivery_delivered.bind(window))
+
+
+func _on_delivery_delivered(commission_id: String, window: WindowComponent) -> void:
+	var commission := CommissionManager.get_commission(commission_id)
+	var title := str(commission.get("title", commission_id))
+	if is_instance_valid(window):
+		window.close()
+	if bool(commission.get("delivery_late", false)):
+		_show_notification("Livraison envoyée (trop tard) : %s" % title)
+		return
+	_show_notification("Livraison envoyée : %s" % title)
 
 
 func _open_commission_editor() -> void:

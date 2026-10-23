@@ -37,6 +37,40 @@
   repository, the source location inside it and the remote are validated before any `git add`, so a
   missing remote leaves the repository untouched. `OS.execute` stays blocking on purpose: it is an
   admin-only dev action, and a worker thread would buy little for a one-shot push.
+- Deliveries live under the profile save folder: `CommissionManager.save_path.get_base_dir()/deliveries/<commission_id>/`,
+  derived without `AuthManager`, so tests stay isolated and profile switching needs no extra wiring.
+  Validation uses the extension, the magic bytes and a decode; the cap is 10 Mo. A commission holds
+  one delivery, only after a successful `complete()`.
+- `CommissionManager.complete(commission_id, delivery, now)` is the on-time deadline gate and
+  `record_delivery()` the finished-commission path: a delivery after the deadline is accepted on a
+  failed commission and flagged `delivery_late`. The gallery reads any commission carrying a
+  `delivery_path`; a missing file is listed but reported as introuvable.
+
+## 2026-10-23 — M9 image delivery and gallery
+
+Added image delivery from a commission. `DeliveryManager` (autoload) validates PNG, JPG and WebP by
+extension, magic bytes and decode, caps a file at 10 Mo, copies the original bytes under
+`user://profiles/<id>/deliveries/<commission_id>/` and rolls the copy back when the commission
+refuses it. `CommissionManager.complete()` takes an optional delivery and an explicit time, stores
+`delivery_path`, `delivery_name`, `delivered_at` and `delivery_late`, and refuses an on-time
+completion once the deadline has passed. `record_delivery()` accepts an image on a finished
+commission without changing its status or sending a mail. The Commissions app carries a « Livrer »
+button on active and finished rows; finished rows report their outcome, including « Livré trop tard
+le … ». The delivery window previews the picked image letterboxed, allows replacing or clearing it,
+and closes with a notification after sending. The Galerie app lists every commission carrying a
+delivery in a thumbnail grid or a list, with an integrated viewer showing client, type and date, a
+late marker, the delivered image exactly, or « Image introuvable » when the file is gone.
+
+Files: `managers/delivery_manager.gd`, `managers/commission_manager.gd`,
+`controllers/delivery/`, `controllers/gallery/`, `controllers/commissions/`,
+`controllers/desktop/`, `components/window/window_component.gd`, `project.godot`,
+`tests/test_scene.gd`, `ROADMAP.md`.
+
+Out of scope: cropping, editing, format conversion, several images per commission, video, cloud
+storage, deletion of a delivery, gallery search/filters/EXIF, thumbnail cache, backup of deliveries.
+`FileDialog` itself is not tested; the path is injected.
+Docs invalidated: `docs/data/PlayerSave.md`, `docs/api/CommissionManager.md`, `docs/api/Index.md`,
+`docs/Features.md`, `docs/Architecture.md`.
 
 ## 2026-10-21 — Roadmap reevaluation
 
