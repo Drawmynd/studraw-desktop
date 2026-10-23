@@ -1,0 +1,124 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/controllers/delivery/delivery_controller.gd" id="1_delivery"]
+
+[node name="DeliveryController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_delivery")
+
+[node name="Panel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="Box" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="Panel/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Livraison"
+autowrap_mode = 1
+
+[node name="MetaLabel" type="Label" parent="Panel/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 1
+
+[node name="PreviewPanel" type="PanelContainer" parent="Panel/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PreviewStack" type="Control" parent="Panel/Margin/Box/PreviewPanel"]
+layout_mode = 2
+custom_minimum_size = Vector2(320, 240)
+
+[node name="Preview" type="TextureRect" parent="Panel/Margin/Box/PreviewPanel/PreviewStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="EmptyLabel" type="Label" parent="Panel/Margin/Box/PreviewPanel/PreviewStack"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Aucune image sélectionnée."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 1
+
+[node name="Actions" type="HBoxContainer" parent="Panel/Margin/Box"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChooseButton" type="Button" parent="Panel/Margin/Box/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Choisir une image…"
+
+[node name="Spacer" type="Control" parent="Panel/Margin/Box/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ClearButton" type="Button" parent="Panel/Margin/Box/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+disabled = true
+text = "Retirer"
+
+[node name="SendButton" type="Button" parent="Panel/Margin/Box/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+disabled = true
+text = "Envoyer la livraison"
+
+[node name="StatusLabel" type="Label" parent="Panel/Margin/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 1
+
+[node name="FileDialog" type="FileDialog" parent="."]
+unique_name_in_owner = true
+title = "Choisir une image"
+size = Vector2i(720, 480)
+ok_button_text = "Choisir"
+file_mode = 0
+access = 2
+filters = PackedStringArray("*.png, *.jpg, *.jpeg, *.webp ; Images")

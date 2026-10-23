@@ -1,9 +1,0 @@
-[gd_scene load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://components/wifi/wifi_indicator.gd" id="1_wifi"]
-
-[node name="WifiIndicator" type="Control"]
-custom_minimum_size = Vector2(24, 24)
-layout_mode = 2
-mouse_filter = 0
-script = ExtResource("1_wifi")

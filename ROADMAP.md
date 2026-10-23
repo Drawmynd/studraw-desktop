@@ -45,8 +45,9 @@ The app does not draw for the player — it motivates them, like a fitness app.
 ## Stack
 
 - Godot 4.7, renderer Mobile (light for a 2D UI app), feature tag switched to Desktop.
-- Layout follows the godot skill: `managers/` (autoloads, `.gd` only),
-  `controllers/` and `components/` (paired `.gd` + `.tscn`), main scene = a controller.
+- Layout splits code from scenes: `scripts/` (`managers/`, `controllers/`, `components/`,
+  `tests/`, `.gd` only) and `scenes/` (same tree, `.tscn` only), plus `addons/`, `assets/`,
+  `data/`, `theme/` and `docs/`. Main scene = a controller.
 
 ## Data models
 

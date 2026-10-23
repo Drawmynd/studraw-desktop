@@ -24,15 +24,19 @@
   `connect`. The addon accepts one client only, so disconnect other directories first
   (`C:\Users\Admin`); OpenCode marks the server failed after one timed-out handshake and never
   retries on its own.
+- Layout convention: `scripts/` holds code only (`managers/`, `controllers/`, `components/`,
+  `tests/`), `scenes/` mirrors that tree with `.tscn` only, and `assets/`, `data/`, `theme/`,
+  `addons/`, `docs/` sit at the root. A new component or controller creates the folder in both
+  trees; a scene's script path always points into `scripts/`.
 - The palette landed as `theme/palette_data.gd` (`PaletteData`, `enum Colors` + `Color` exports),
-  `theme/palette.tres` and a facade `managers/palette.gd` (`colors`, `color(entry)`, `load_from`,
-  `using_fallback`). `Palette.colors.<name>` reads a fixed entry; `Palette.color(<export>)` is the
+  `theme/palette.tres` and a facade `scripts/managers/palette.gd` (`colors`, `color(entry)`,
+  `load_from`, `using_fallback`). `Palette.colors.<name>` reads a fixed entry; `Palette.color(<export>)` is the
   path for anything an element can choose. `TASKBAR_BUTTON_MINIMIZED_ALPHA` and `TASKBAR_ALPHA`
   stay on the facade: they are alphas, not colours. The headless `_test_palette` guards the literal
   scan (allowlist: the facade and the data script), the enum/exports coherence and the fallback.
 - Headless tests: run the 4.7 Steam binary
   (`C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe`)
-  with `--headless --path <project> res://tests/test_scene.tscn`. It loads the addon without the
+  with `--headless --path <project> res://scenes/tests/test_scene.tscn`. It loads the addon without the
   `MCPGameBridge` workaround and keeps the global class cache current, so a new `class_name` is
   found. The winget `godot_console.exe` is 4.4.1 and cannot parse the addon; do not use it. Exit
   code is 1 when a test fails.
@@ -53,6 +57,29 @@
   `record_delivery()` the finished-commission path: a delivery after the deadline is accepted on a
   failed commission and flagged `delivery_late`. The gallery reads any commission carrying a
   `delivery_path`; a missing file is listed but reported as introuvable.
+
+## 2026-10-23 — Project layout split by kind
+
+Split the flat `managers/`, `controllers/`, `components/` and `tests/` roots into a code tree and a
+scene tree. `scripts/` now holds every `.gd` (`managers/`, `controllers/`, `components/`, `tests/`)
+and `scenes/` mirrors that tree for `.tscn` only, so a component or controller keeps one folder name
+in both; `assets/` gathers the app icon and the Wi-Fi SVG icons that used to live inside
+`components/wifi/icons/`. `addons/`, `data/`, `theme/` and `docs/` are unchanged.
+
+All `res://` references were rewritten in `project.godot`, `.tscn`, `.gd`, `.tres` and `.import`
+files (autoloads, preloads, `run/main_scene`, `config/icon`). The literal-colour test now skips any
+directory named `tests` instead of the removed `res://tests` path. Class names, node names and scene
+contents are untouched; no file was rewritten beyond its path strings.
+
+Files: every moved `.gd`, `.tscn`, `.uid` and `.import`, `project.godot`, `scripts/tests/test_scene.gd`,
+`ROADMAP.md`.
+
+Out of scope: moving `data/`, `theme/` or `docs/` content, renaming classes or nodes, splitting the
+larger scenes, and adding an autoload subfolder. Docs invalidated: `docs/Architecture.md` (folder
+layout, autoload paths), `docs/Index.md`, `docs/api/Index.md` and every `docs/api/*.md` page that
+quotes a `res://` path (`Palette.md`, `Applications.md`, `DesktopShell.md`, `AuthManager.md`,
+`ClockManager.md`, `CommissionEditor.md`, `CommissionManager.md`, `MailManager.md`,
+`SyncManager.md`).
 
 ## 2026-10-23 — Editable palette and per-element colour choices
 

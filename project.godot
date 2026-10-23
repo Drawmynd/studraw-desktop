@@ -11,20 +11,20 @@ config_version=5
 [application]
 
 config/name="Studraw"
-run/main_scene="res://controllers/login/login_controller.tscn"
+run/main_scene="res://scenes/controllers/login/login_controller.tscn"
 config/features=PackedStringArray("4.7")
-config/icon="res://icon.svg"
+config/icon="res://assets/icon.svg"
 
 [autoload]
 
-ClockManager="*res://managers/clock_manager.gd"
-Palette="*res://managers/palette.gd"
-AuthManager="*res://managers/auth_manager.gd"
-MailManager="*res://managers/mail_manager.gd"
-CommissionManager="*res://managers/commission_manager.gd"
-DeliveryManager="*res://managers/delivery_manager.gd"
-SyncManager="*res://managers/sync_manager.gd"
-CommissionEditor="*res://managers/commission_editor.gd"
+ClockManager="*res://scripts/managers/clock_manager.gd"
+Palette="*res://scripts/managers/palette.gd"
+AuthManager="*res://scripts/managers/auth_manager.gd"
+MailManager="*res://scripts/managers/mail_manager.gd"
+CommissionManager="*res://scripts/managers/commission_manager.gd"
+DeliveryManager="*res://scripts/managers/delivery_manager.gd"
+SyncManager="*res://scripts/managers/sync_manager.gd"
+CommissionEditor="*res://scripts/managers/commission_editor.gd"
 MCPGameBridge="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
 
 [display]

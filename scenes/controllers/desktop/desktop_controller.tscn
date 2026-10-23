@@ -1,0 +1,150 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://dqrcq6dnnjyyn" path="res://scripts/controllers/desktop/desktop_controller.gd" id="1_desktop"]
+[ext_resource type="PackedScene" path="res://scenes/components/wifi/wifi_indicator.tscn" id="2_wifi"]
+
+[node name="DesktopController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_desktop")
+
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AppButtons" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 184.0
+offset_bottom = 112.0
+theme_override_constants/separation = 8
+
+[node name="MailButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Courrier"
+alignment = 0
+
+[node name="CommissionsButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Commandes"
+alignment = 0
+
+[node name="GalleryButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Galerie"
+alignment = 0
+
+[node name="EditorButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Éditeur"
+alignment = 0
+
+[node name="DevButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Console dev"
+alignment = 0
+
+[node name="ProfileButton" type="Button" parent="AppButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 40)
+layout_mode = 2
+focus_mode = 0
+text = "Profil"
+alignment = 0
+
+[node name="Windows" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="NotificationPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -380.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 86.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="NotificationLabel" type="Label" parent="NotificationPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Taskbar" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -40.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="TaskbarRow" type="HBoxContainer" parent="Taskbar"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WindowList" type="HBoxContainer" parent="Taskbar/TaskbarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Spacer" type="Control" parent="Taskbar/TaskbarRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LogoutButton" type="Button" parent="Taskbar/TaskbarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Déconnexion"
+
+[node name="WifiIndicator" parent="Taskbar/TaskbarRow" instance=ExtResource("2_wifi")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ClockLabel" type="Label" parent="Taskbar/TaskbarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "00:00:00"
+horizontal_alignment = 2
+vertical_alignment = 1

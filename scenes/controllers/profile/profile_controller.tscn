@@ -1,0 +1,166 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/controllers/profile/profile_controller.gd" id="1_profile"]
+
+[node name="ProfileController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_profile")
+
+[node name="Panel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PseudoLabel" type="Label" parent="Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Profil"
+
+[node name="RoleLabel" type="Label" parent="Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Profil standard"
+
+[node name="StepLabel" type="Label" parent="Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Mon compte"
+autowrap_mode = 3
+
+[node name="ActionsBox" type="VBoxContainer" parent="Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ChangeButton" type="Button" parent="Panel/Box/ActionsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Changer mes identifiants"
+
+[node name="DeleteButton" type="Button" parent="Panel/Box/ActionsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Supprimer le profil"
+
+[node name="LogoutButton" type="Button" parent="Panel/Box/ActionsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Se déconnecter"
+
+[node name="CredentialsBox" type="VBoxContainer" parent="Panel/Box"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PseudoEdit" type="LineEdit" parent="Panel/Box/CredentialsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Nouveau pseudo (vide pour conserver)"
+
+[node name="PasswordEdit" type="LineEdit" parent="Panel/Box/CredentialsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Nouveau mot de passe (vide pour conserver)"
+secret = true
+
+[node name="ConfirmEdit" type="LineEdit" parent="Panel/Box/CredentialsBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Confirmer le mot de passe"
+secret = true
+
+[node name="CredentialsButtons" type="HBoxContainer" parent="Panel/Box/CredentialsBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CredentialsContinueButton" type="Button" parent="Panel/Box/CredentialsBox/CredentialsButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Continuer"
+
+[node name="CredentialsBackButton" type="Button" parent="Panel/Box/CredentialsBox/CredentialsButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Retour"
+
+[node name="PasswordBox" type="VBoxContainer" parent="Panel/Box"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CurrentPasswordEdit" type="LineEdit" parent="Panel/Box/PasswordBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Mot de passe actuel"
+secret = true
+
+[node name="PasswordButtons" type="HBoxContainer" parent="Panel/Box/PasswordBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PasswordSaveButton" type="Button" parent="Panel/Box/PasswordBox/PasswordButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enregistrer"
+
+[node name="PasswordBackButton" type="Button" parent="Panel/Box/PasswordBox/PasswordButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Retour"
+
+[node name="DeleteBox" type="VBoxContainer" parent="Panel/Box"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DeletePasswordEdit" type="LineEdit" parent="Panel/Box/DeleteBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Mot de passe pour confirmer"
+secret = true
+
+[node name="DeleteButtons" type="HBoxContainer" parent="Panel/Box/DeleteBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DeleteConfirmButton" type="Button" parent="Panel/Box/DeleteBox/DeleteButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Supprimer définitivement"
+
+[node name="DeleteBackButton" type="Button" parent="Panel/Box/DeleteBox/DeleteButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Retour"
+
+[node name="StatusLabel" type="Label" parent="Panel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3

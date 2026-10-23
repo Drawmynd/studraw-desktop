@@ -1,0 +1,321 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/controllers/editor/commission_editor_controller.gd" id="1_editor"]
+[ext_resource type="Script" path="res://scripts/components/resize_grip/resize_grip.gd" id="2_grip"]
+
+[node name="CommissionEditorController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_editor")
+
+[node name="Split" type="HSplitContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+split_offset = 280
+
+[node name="ListPanel" type="PanelContainer" parent="Split"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(250, 0)
+
+[node name="ListMargin" type="MarginContainer" parent="Split/ListPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ListBox" type="VBoxContainer" parent="Split/ListPanel/ListMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FamilyBar" type="TabBar" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ElementList" type="ItemList" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="NewButton" type="Button" parent="Split/ListPanel/ListMargin/ListBox"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Nouvelle commande"
+
+[node name="DetailPanel" type="PanelContainer" parent="Split"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DetailMargin" type="MarginContainer" parent="Split/DetailPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="DetailBox" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DetailTitle" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Nouvelle commande"
+autowrap_mode = 3
+
+[node name="CommissionForm" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TitleCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Titre"
+
+[node name="TitleEdit" type="LineEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Titre de la commande"
+
+[node name="ClientTypeRow" type="HBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ClientBox" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="ClientCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow/ClientBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Client"
+
+[node name="ClientOption" type="OptionButton" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow/ClientBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="TypeBox" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="TypeCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow/TypeBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Type"
+
+[node name="TypeOption" type="OptionButton" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow/TypeBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="DurationBox" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.6
+theme_override_constants/separation = 4
+
+[node name="DurationCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow/DurationBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Durée (min)"
+
+[node name="DurationEdit" type="LineEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/ClientTypeRow/DurationBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Auto"
+
+[node name="DescriptionCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Description"
+
+[node name="DescriptionEdit" type="TextEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+wrap_mode = 1
+
+[node name="RequestCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Message de demande"
+
+[node name="RequestEdit" type="TextEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+wrap_mode = 1
+
+[node name="RequestGrip" type="Control" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_default_cursor_shape = 16
+script = ExtResource("2_grip")
+
+[node name="MessagesRow" type="HBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SuccessBox" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="SuccessCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow/SuccessBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Message de succès"
+
+[node name="SuccessEdit" type="TextEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow/SuccessBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+wrap_mode = 1
+
+[node name="SuccessGrip" type="Control" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow/SuccessBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_default_cursor_shape = 16
+script = ExtResource("2_grip")
+
+[node name="FailureBox" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="FailureCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow/FailureBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Message d'échec"
+
+[node name="FailureEdit" type="TextEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow/FailureBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+wrap_mode = 1
+
+[node name="FailureGrip" type="Control" parent="Split/DetailPanel/DetailMargin/DetailBox/CommissionForm/MessagesRow/FailureBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_default_cursor_shape = 16
+script = ExtResource("2_grip")
+
+[node name="ClientForm" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ClientNameCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/ClientForm"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Nom"
+
+[node name="ClientNameEdit" type="LineEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/ClientForm"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Nom du client"
+
+[node name="ClientEmailCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/ClientForm"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Email"
+
+[node name="ClientEmailEdit" type="LineEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/ClientForm"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "adresse@client.example"
+
+[node name="ClientNote" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/ClientForm"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "L'email sert d'expéditeur aux mails de commande."
+autowrap_mode = 3
+
+[node name="TypeForm" type="VBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TypeNameCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/TypeForm"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Nom"
+
+[node name="TypeNameEdit" type="LineEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/TypeForm"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Nom du type d'œuvre"
+
+[node name="TypeDurationCaption" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/TypeForm"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Durée par défaut (min)"
+
+[node name="TypeDurationEdit" type="LineEdit" parent="Split/DetailPanel/DetailMargin/DetailBox/TypeForm"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Durée appliquée si la commande n'en fixe pas"
+
+[node name="TypeNote" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox/TypeForm"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "La durée est recopiée dans la commande au moment de l'enregistrer."
+autowrap_mode = 3
+
+[node name="Separator" type="HSeparator" parent="Split/DetailPanel/DetailMargin/DetailBox"]
+layout_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="Split/DetailPanel/DetailMargin/DetailBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SaveButton" type="Button" parent="Split/DetailPanel/DetailMargin/DetailBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Enregistrer"
+
+[node name="DeleteButton" type="Button" parent="Split/DetailPanel/DetailMargin/DetailBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Supprimer"
+
+[node name="Spacer" type="Control" parent="Split/DetailPanel/DetailMargin/DetailBox/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PublishButton" type="Button" parent="Split/DetailPanel/DetailMargin/DetailBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Valider et publier"
+
+[node name="StatusLabel" type="Label" parent="Split/DetailPanel/DetailMargin/DetailBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
