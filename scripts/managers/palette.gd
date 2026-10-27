@@ -1,3 +1,4 @@
+@tool
 extends Node
 
 const PALETTE_PATH := "res://theme/palette.tres"

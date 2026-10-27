@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="PaletteData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="PaletteData" format=3 uid="uid://8q6kxsl6il88"]
 
-[ext_resource type="Script" path="res://theme/palette_data.gd" id="1_palette"]
+[ext_resource type="Script" uid="uid://b6eet35ygwcg6" path="res://theme/palette_data.gd" id="1_palette"]
 
 [resource]
 script = ExtResource("1_palette")

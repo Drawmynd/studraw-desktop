@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 signal delivered(commission_id: String)
@@ -39,6 +40,9 @@ var source_path: String = ""
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	if commission_manager == null:
 		commission_manager = get_node_or_null("/root/CommissionManager")
 	if delivery_manager == null:

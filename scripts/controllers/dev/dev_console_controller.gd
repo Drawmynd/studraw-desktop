@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 @onready var panel: PanelContainer = %Panel
@@ -126,6 +127,9 @@ const FIXTURES := [
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	if sync_manager == null:
 		sync_manager = get_node_or_null("/root/SyncManager")
 	if auth_manager == null:

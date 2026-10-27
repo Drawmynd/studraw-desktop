@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 signal delivery_requested(commission_id: String)
@@ -32,6 +33,9 @@ var _deadline_labels: Dictionary = {}
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	if commission_manager == null:
 		commission_manager = get_node_or_null("/root/CommissionManager")
 	if clock_manager == null:

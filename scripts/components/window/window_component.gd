@@ -1,3 +1,4 @@
+@tool
 class_name WindowComponent
 extends Control
 
@@ -54,6 +55,9 @@ var _resize_start_mouse: Vector2
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	custom_minimum_size = minimum_window_size
 	size = initial_size
 	title_label.text = window_title
@@ -213,6 +217,11 @@ func clamp_into_work_area() -> void:
 	_clamp_position()
 
 
+func _apply_palette() -> void:
+	_build_styles()
+	set_focused(false)
+
+
 func _build_styles() -> void:
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Palette.color(background_color)
@@ -244,6 +253,8 @@ func _clamp_position() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if not event.pressed:
 			_dragging = false

@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 signal height_changed(height: float)
@@ -21,6 +22,9 @@ var _start_height: float = 0.0
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	custom_minimum_size.y = GRIP_HEIGHT
 	mouse_default_cursor_shape = Control.CURSOR_VSIZE
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -28,6 +32,10 @@ func _ready() -> void:
 	mouse_entered.connect(_on_hover_changed.bind(true))
 	mouse_exited.connect(_on_hover_changed.bind(false))
 	resized.connect(queue_redraw)
+
+
+func _apply_palette() -> void:
+	queue_redraw()
 
 
 func _draw() -> void:
@@ -52,6 +60,8 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	if event is InputEventMouseMotion:
 		_apply_drag(event.global_position.y)
 		get_viewport().set_input_as_handled()

@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 @onready var panel: PanelContainer = %Panel
@@ -24,6 +25,9 @@ func setup(target_path: String) -> void:
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	_apply_palette()
 	refresh_button.pressed.connect(_refresh)
 	_refresh()

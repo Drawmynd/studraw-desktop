@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 signal pressed
@@ -20,13 +21,25 @@ var _textures: Dictionary = {}
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_load_textures()
+		_apply_palette()
+		return
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_load_textures()
+	update_tooltip()
+	queue_redraw()
+
+
+func _apply_palette() -> void:
+	queue_redraw()
+
+
+func _load_textures() -> void:
 	_textures[STATE_REMOTE] = _load_icon(ICON_REMOTE)
 	_textures[STATE_LOCAL] = _load_icon(ICON_LOCAL)
 	_textures[STATE_ERROR] = _load_icon(ICON_ERROR)
-	update_tooltip()
-	queue_redraw()
 
 
 func _load_icon(path: String) -> Texture2D:

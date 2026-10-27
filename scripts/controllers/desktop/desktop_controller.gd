@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 const WINDOW_SCENE: PackedScene = preload("res://scenes/components/window/window_component.tscn")
@@ -61,6 +62,9 @@ var _notification_visible: bool = false
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	if auth_manager == null:
 		auth_manager = get_node_or_null("/root/AuthManager")
 	_apply_palette()
@@ -90,6 +94,15 @@ func _ready() -> void:
 	_notification_timer.timeout.connect(_on_notification_timeout)
 	add_child(_notification_timer)
 	SyncManager.start()
+
+
+func _notification(what: int) -> void:
+	if not Engine.is_editor_hint():
+		return
+	if what == NOTIFICATION_EDITOR_PRE_SAVE:
+		background.color = Color.WHITE
+	elif what == NOTIFICATION_EDITOR_POST_SAVE:
+		_apply_palette()
 
 
 func _apply_palette() -> void:
@@ -348,6 +361,8 @@ func _add_window_button(window: WindowComponent) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var window := _topmost_window_at(event.position)
 		if window != null:

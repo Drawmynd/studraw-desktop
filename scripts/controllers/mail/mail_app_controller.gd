@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 @onready var list_panel: PanelContainer = %ListPanel
@@ -52,6 +53,9 @@ var _refreshing: bool = false
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	if mail_manager == null:
 		mail_manager = MailManager
 	if commission_manager == null:

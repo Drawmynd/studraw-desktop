@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 signal logout_requested
@@ -57,6 +58,9 @@ var _pending_password: String = ""
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	_resolve_dependencies()
 	_apply_palette()
 	change_button.pressed.connect(open_credentials)

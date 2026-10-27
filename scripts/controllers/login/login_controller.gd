@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 signal login_succeeded(profile_id: String)
@@ -65,6 +66,9 @@ var _title_click_count: int = 0
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	_resolve_dependencies()
 	_apply_palette()
 	continue_button.pressed.connect(open_credentials)
@@ -243,6 +247,15 @@ func _wire_profile(profile_id: String) -> void:
 func _set_status(message: String, kind: String = "neutral") -> void:
 	status_label.text = message
 	status_label.add_theme_color_override("font_color", Palette.status_color(kind))
+
+
+func _notification(what: int) -> void:
+	if not Engine.is_editor_hint():
+		return
+	if what == NOTIFICATION_EDITOR_PRE_SAVE:
+		background.color = Color.WHITE
+	elif what == NOTIFICATION_EDITOR_POST_SAVE:
+		_apply_palette()
 
 
 func _apply_palette() -> void:

@@ -34,6 +34,15 @@
   path for anything an element can choose. `TASKBAR_BUTTON_MINIMIZED_ALPHA` and `TASKBAR_ALPHA`
   stay on the facade: they are alphas, not colours. The headless `_test_palette` guards the literal
   scan (allowlist: the facade and the data script), the enum/exports coherence and the fallback.
+- Editor preview: `Palette` and every controller/component are `@tool`. Their `_ready` applies the
+  palette and returns when `Engine.is_editor_hint()`, so managers, timers and signals never run in
+  the editor; `_input` is guarded the same way. Theme overrides are not serialized by
+  `PackedScene`, but direct properties are: `background.color` is reset to `Color.WHITE` on
+  `NOTIFICATION_EDITOR_PRE_SAVE` (the only non-palette colour, editor-only) and reapplied on
+  `NOTIFICATION_EDITOR_POST_SAVE`. Live refresh is driven by `addons/palette_preview`, an editor
+  plugin (`@tool` is mandatory on `EditorPlugin` scripts) that listens to
+  `EditorInspector.property_edited` and calls `_apply_palette()` on every node of the edited scene;
+  this covers both export edits and palette resource edits. No per-frame polling or 180 setters.
 - Headless tests: run the 4.7 Steam binary
   (`C:\Program Files (x86)\Steam\steamapps\common\Godot Engine\godot.windows.opt.tools.64.exe`)
   with `--headless --path <project> res://scenes/tests/test_scene.tscn`. It loads the addon without the
@@ -57,6 +66,30 @@
   `record_delivery()` the finished-commission path: a delivery after the deadline is accepted on a
   failed commission and flagged `delivery_late`. The gallery reads any commission carrying a
   `delivery_path`; a missing file is listed but reported as introuvable.
+
+## 2026-10-23 — Editor palette preview through tool scripts
+
+Scenes used to show Godot defaults (a white desktop) because the palette was only applied by
+`_ready()` at runtime. The `Palette` autoload and every controller and component are now `@tool`,
+so opening a scene in the editor applies the same colours without launching the game.
+
+Each `_ready()` starts with an editor branch: apply the palette, then return. That keeps managers,
+timers, signals, refresh calls and node creation out of the editor. Components only build their
+styles or load their textures; they no longer touch `size`, `custom_minimum_size`, `tooltip_text`
+or the title text in the editor. `_input()` is also guarded so editor mouse events never drag or
+resize a previewed node.
+
+Saving an open scene would serialize direct property writes. Theme overrides are not serialized by
+`PackedScene` (checked), so only `background.color` matters: `desktop_controller` and
+`login_controller` reset it to `Color.WHITE` on `NOTIFICATION_EDITOR_PRE_SAVE` and reapply the
+palette on `NOTIFICATION_EDITOR_POST_SAVE`. No palette colour reaches a `.tscn`.
+
+Files: `scripts/managers/palette.gd`, the 10 controllers under `scripts/controllers/`, the 3
+components under `scripts/components/`, `addons/palette_preview/`, `project.godot`, `changes.md`.
+
+Out of scope: styled preview of runtime-built rows and lists, an inspector plugin, and a custom
+editor dock.
+Docs invalidated: `docs/api/Palette.md`, `docs/Architecture.md` (colour convention, editor mode).
 
 ## 2026-10-23 — Project layout split by kind
 

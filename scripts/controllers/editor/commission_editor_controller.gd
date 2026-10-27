@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 const FAMILY_COMMISSIONS := 0
@@ -79,6 +80,9 @@ var _refreshing: bool = false
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_apply_palette()
+		return
 	_resolve_dependencies()
 	_apply_palette()
 	_wire_grips()
